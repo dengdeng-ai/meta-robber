@@ -1,0 +1,974 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>그림 메타 뜯개</title>
+<style>
+  :root{
+    --bg:#f6f3ee; --card:#fffdf9; --text:#2b2622; --ink:#2b2622; --sub:#7a6f66; --line:#e4ddd3;
+    --accent:#8c7562; --accent-soft:#efe8de; --warn:#a86b1f; --warn-soft:#f8ecd9; --ok:#3f7d5a; --ok-soft:#e3f1e8;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#1b1917; --card:#24211f; --text:#ece6df; --ink:#ece6df; --sub:#a39890; --line:#3a3532;
+      --accent:#c9b29b; --accent-soft:#302b26; --warn:#e0a85c; --warn-soft:#3a2f20; --ok:#7fc29b; --ok-soft:#21342a; }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard","Noto Sans KR","Malgun Gothic",sans-serif;
+    font-size:14px;line-height:1.5}
+  .wrap{max-width:760px;margin:0 auto;padding:28px 18px 60px}
+  h1{font-size:20px;margin:0 0 4px;font-weight:700}
+  .lead{color:var(--sub);margin:0 0 20px}
+  .lead a{color:var(--accent)}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:14px}
+  .drop{display:block;border:1.5px dashed var(--line);border-radius:12px;padding:30px 16px;text-align:center;cursor:pointer;transition:.15s}
+  .drop:hover,.drop.over{border-color:var(--accent);background:var(--accent-soft)}
+  .drop b{display:block;font-size:15px;margin-bottom:2px}
+  .drop span{color:var(--sub);font-size:13px}
+  .hidden{display:none!important}
+  .drop-overlay{display:none;position:fixed;inset:10px;border:2px dashed var(--accent);border-radius:16px;background:color-mix(in srgb, var(--bg) 55%, transparent);z-index:60;align-items:center;justify-content:center;pointer-events:none;font-weight:600;color:var(--accent);font-size:16px}
+  body.dragging .drop-overlay{display:flex}
+
+  /* 설정 줄 */
+  .row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .lbl{width:76px;color:var(--sub);flex-shrink:0}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+  .seg button{border:0;background:transparent;color:var(--text);padding:6px 12px;font:inherit;cursor:pointer;border-left:1px solid var(--line);white-space:nowrap}
+  .seg button:first-child{border-left:0}
+  .seg button.on{background:var(--accent);color:#fff;font-weight:600}
+  @media (max-width:480px){ .seg button{padding:6px 9px} }
+
+  /* 목록 머리 */
+  .list-head{display:flex;justify-content:space-between;align-items:center;margin:4px 2px 10px}
+  .list-head .t{font-weight:600}
+  .list-head .t small{color:var(--sub);font-weight:400;margin-left:6px}
+  .tabs{display:inline-flex;gap:14px}
+  .tab{background:none;border:0;padding:0;font:inherit;color:var(--sub);cursor:pointer}
+  .tab small{font-size:12px;margin-left:2px}
+  .tab.on{color:var(--text);font-weight:600}
+  .link{background:none;border:0;color:var(--sub);cursor:pointer;font:inherit;padding:0}
+  .link:hover{color:var(--text)}
+
+  /* 결과 카드 */
+  .result{background:var(--card);border:1px solid var(--line);border-radius:14px;margin-bottom:14px;overflow:hidden}
+  .result.hiddenimg{border-color:var(--accent)}
+  .head{display:flex;gap:12px;padding:14px 16px;align-items:center;cursor:pointer}
+  .head img{width:54px;height:54px;object-fit:cover;border-radius:8px;background:var(--bg);border:1px solid var(--line);flex:none}
+  .head .info{flex:1;min-width:0}
+  .head .name{font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .head .meta{color:var(--sub);font-size:12px}
+  .head .arrow{color:var(--sub);font-size:12px;flex:none}
+  .head .x{border:0;background:none;color:var(--sub);cursor:pointer;font-size:18px;line-height:1;padding:2px 4px;flex:none}
+  .head .x:hover{color:var(--text)}
+  .result.folded .body{display:none}
+  .result.folded .arrow{transform:rotate(180deg)}
+  .chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
+  .chip{font-size:11.5px;padding:1px 7px;border-radius:20px;background:var(--bg);color:var(--sub);white-space:nowrap}
+  .chip.ok{background:var(--ok-soft);color:var(--ok)}
+  .chip.warn{background:var(--warn-soft);color:var(--warn)}
+  .body{padding:0 16px 16px;border-top:1px solid var(--line)}
+  .result.folded .head{padding-bottom:10px}
+  .result.folded:not(:has(.quick)) .head{padding-bottom:14px}
+
+  .quick{display:flex;gap:6px;padding:0 16px 12px;margin-top:-2px;overflow-x:auto;scrollbar-width:none}
+  .quick::-webkit-scrollbar{display:none}
+  #out.onlyfound .result.nf{display:none}
+  #out.onlynone .result:not(.nf){display:none}
+  .body>.sec:first-child,.body>.why:first-child,.body>.gen:first-child{margin-top:14px}
+  .quick button{flex:1 1 0;min-width:0;white-space:nowrap;padding:6px 4px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--accent);font:inherit;font-size:12.5px;font-weight:600;cursor:pointer}
+  .quick button:hover{background:var(--accent-soft)}
+  .quick button{font-size:12px}
+  .gen{display:flex;flex-wrap:wrap;gap:4px;margin-top:14px}
+  .gen .g{border:0;background:var(--bg);color:var(--sub);font:inherit;font-size:12px;padding:3px 9px;border-radius:20px;cursor:pointer}
+  .gen .g:hover{color:var(--text);background:var(--accent-soft)}
+  .charpick{margin-top:-6px;flex-wrap:wrap;overflow:visible}
+  .charpick button{flex:0 0 auto;min-width:44px;padding:6px 10px}
+  .quick .ql{flex:none;align-self:center;color:var(--sub);font-size:12px;margin-right:2px}
+  .quick button.main{background:var(--accent);border-color:var(--accent);color:#fff}
+
+  .sec{margin-top:14px}
+  .sec-h{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px}
+  .sec-h .t{font-weight:600;font-size:13.5px}
+  .sec-h .src{color:var(--sub);font-weight:400;font-size:12px;margin-left:6px}
+  pre{margin:0;white-space:pre-wrap;word-break:break-word;background:var(--bg);border-radius:8px;padding:10px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;max-height:320px;overflow:auto}
+  pre.mono{white-space:pre;font-size:11.5px}
+  .acts{display:inline-flex;align-items:center;gap:6px;flex:none}
+  .mini{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .mini button{border:0;background:var(--card);color:var(--sub);font:inherit;font-size:12px;padding:3px 9px;cursor:pointer}
+  .mini button+button{border-left:1px solid var(--line)}
+  .mini button.on{background:var(--accent-soft);color:var(--text);font-weight:600}
+  @media (max-width:480px){ .sec-h .src{display:none} }
+  button.copy{border:1px solid var(--line);background:var(--card);color:var(--text);border-radius:8px;font:inherit;font-size:12px;padding:3px 10px;cursor:pointer;flex:none}
+  button.copy:hover{border-color:var(--accent);color:var(--accent)}
+  .kv{display:grid;grid-template-columns:max-content 1fr;gap:3px 14px;font-size:13px;background:var(--bg);border-radius:8px;padding:10px 12px}
+  .kv div:nth-child(odd){color:var(--sub)}
+  .kv div:nth-child(even){font-family:ui-monospace,Menlo,Consolas,monospace;word-break:break-all;font-size:12.5px}
+  .kv .cv{cursor:pointer;border-radius:4px}
+  .kv .cv:hover{background:var(--accent-soft)}
+  .why{font-size:13px;background:var(--warn-soft);color:var(--text);border-radius:10px;padding:10px 12px;margin-top:14px}
+  .why b{color:var(--warn)}
+  .why ul{margin:6px 0 0;padding-left:18px}
+  .tip{background:var(--ok-soft);color:var(--ok);border-radius:10px;padding:10px 12px;margin-top:14px;font-size:13px}
+  .tip a{color:var(--ok);font-weight:600}
+  details{margin-top:14px}
+  summary{cursor:pointer;color:var(--sub);font-size:13px}
+  details.deep{border-top:1px solid var(--line);padding-top:12px}
+  details.deep>summary{color:var(--accent);font-weight:600}
+  .notes{margin-top:12px;background:var(--accent-soft);border-radius:10px;padding:10px 12px;font-size:13px}
+  .notes div+div{margin-top:4px}
+
+  /* 태그 보기 */
+  .tags{display:flex;flex-wrap:wrap;gap:4px;background:var(--bg);border-radius:8px;padding:9px;max-height:320px;overflow:auto}
+  .tag{font-size:12px;padding:2px 8px;border-radius:6px;background:var(--card);border:1px solid var(--line);font-family:ui-monospace,Menlo,Consolas,monospace;word-break:break-word}
+  .tag[data-copy]{cursor:pointer}
+  .tag[data-copy]:hover{background:var(--accent-soft)}
+  .tag.up{border-color:var(--accent);color:var(--accent)}
+  .tag.down{border-color:var(--warn);color:var(--warn)}
+  .tag i{font-style:normal;opacity:.7;margin-right:4px;font-size:11px}
+
+  /* 비교 */
+  #cmpCard{padding:14px 18px}
+  details.cmp{margin:0}
+  details.cmp>summary{color:var(--text);font-weight:600;font-size:14px}
+  .cmp-sel{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 4px}
+  .cmp-sel select{flex:1;min-width:140px;font:inherit;color:var(--text);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:6px 8px}
+  .cmp-col{margin-top:12px}
+  .cmp-col .h{font-size:12.5px;color:var(--sub);margin-bottom:5px}
+  .empty{color:var(--sub);font-size:13px}
+
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:8px 16px;border-radius:20px;font-size:13px;opacity:0;transition:.2s;pointer-events:none;z-index:80}
+  .toast.on{opacity:.92}
+  .hint{color:var(--sub);font-size:12.5px;width:100%}
+  @media (min-width:520px){ .hint{padding-left:86px} }
+  .help{color:var(--sub);font-size:13px;margin-top:6px}
+  .help b{color:var(--text)}
+  .help ul{margin:6px 0 0;padding-left:18px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>그림 메타 뜯개</h1>
+  <p class="lead">AI 그림(NovelAI · WebUI · ComfyUI)에 남은 프롬프트를 꺼내요. 숨긴 메타까지 확인하고, 그림은 브라우저 안에서만 읽어서 어디에도 올라가지 않아요.</p>
+
+  <div class="card">
+    <label class="drop" id="drop" for="file">
+      <b>그림 올리기</b>
+      <span>끌어다 놓기 · 눌러서 고르기 · 붙여넣기(Ctrl+V)<br>PNG 원본이 제일 잘 나와요 · 여러 장 가능</span>
+    </label>
+    <input type="file" id="file" accept="image/*" multiple hidden>
+  </div>
+
+  <div id="listWrap" class="hidden">
+    <div class="list-head">
+      <span class="tabs"><button class="tab on" data-v="all">전체 <small id="cntAll">0</small></button><button class="tab" data-v="found">메타 있음 <small id="cntFound">0</small></button><button class="tab" data-v="none">메타 없음 <small id="cntNone">0</small></button></span>
+      <span><button class="link" id="foldAll">모두 접기</button> · <button class="link" id="clear">목록 비우기</button></span>
+    </div>
+    <div id="out"></div>
+  </div>
+
+  <div class="card hidden" id="cmpCard">
+    <details class="cmp">
+      <summary>두 그림 프롬프트 비교</summary>
+      <div class="empty" style="margin-top:8px">베이스 · 캐릭터 · 네거티브 태그 중 한쪽에만 있는 것만 보여줘요.</div>
+      <div class="cmp-sel"><select id="cmpA"></select><select id="cmpB"></select></div>
+      <div id="cmpOut"></div>
+    </details>
+  </div>
+
+  <div class="help">
+    <b>메타가 안 나올 때</b>
+    <ul>
+      <li>트위터(X), 디스코드, 카톡, 인스타 등에서 저장한 그림은 대부분 지워져 있어요.</li>
+      <li>캡처본, JPG/WebP로 바뀐 그림, 편집 앱에서 레이어를 합쳐 저장한 그림도 보통 없어요.</li>
+      <li>원본 PNG 파일 자체를 받아야 해요 (파일 전송, 드라이브 링크 등).</li>
+    </ul>
+  </div>
+</div>
+<div class="drop-overlay"><div>여기에 놓아주세요</div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+const drop = $('#drop'), fileIn = $('#file'), out = $('#out');
+const td = new TextDecoder('utf-8'), tdl = new TextDecoder('latin1');
+const results = []; // 비교용 {id,name,prompt,chars,uc}
+let rid = 0; const viewMode = 'raw';
+
+function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('on'); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('on'),1300); }
+async function copyText(text,label){
+  const what=label?(label.length>28?label.slice(0,27)+'…':label)+' 복사했어요':'복사했어요';
+  try{ await navigator.clipboard.writeText(text); toast(what); return true; }
+  catch(e){
+    const ta=document.createElement('textarea'); ta.value=text; ta.style.position='fixed'; ta.style.opacity='0'; document.body.appendChild(ta); ta.select();
+    let ok=false; try{ ok=document.execCommand('copy'); }catch(_){}
+    ta.remove(); toast(ok?what:'복사가 막혀 있어요. 직접 선택해서 복사해주세요'); return ok;
+  }
+}
+
+const isImg = f => f && (f.type.startsWith('image/') || /\.(png|jpe?g|webp|avif)$/i.test(f.name));
+['dragenter','dragover'].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.add('over')}));
+['dragleave','drop'].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.remove('over')}));
+drop.addEventListener('drop',ev=>handle([...ev.dataTransfer.files]));
+fileIn.addEventListener('change',()=>{handle([...fileIn.files]);fileIn.value=''});
+window.addEventListener('paste',ev=>{
+  const fs=[...(ev.clipboardData?.files||[])].filter(isImg);
+  if(fs.length) handle(fs);
+});
+// 페이지 아무 데나 끌어다 놓기
+let dragDepth=0;
+const hasFiles = e => [...(e.dataTransfer?.types||[])].includes('Files');
+document.addEventListener('dragenter',e=>{ if(!hasFiles(e)) return; dragDepth++; document.body.classList.add('dragging'); });
+document.addEventListener('dragleave',()=>{ dragDepth=Math.max(0,dragDepth-1); if(!dragDepth) document.body.classList.remove('dragging'); });
+document.addEventListener('dragover',e=>{ if(hasFiles(e)) e.preventDefault(); });
+document.addEventListener('drop',e=>{ dragDepth=0; document.body.classList.remove('dragging'); if(!drop.contains(e.target)){ e.preventDefault(); handle([...e.dataTransfer.files]); } });
+
+document.querySelectorAll('.tabs .tab').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('.tabs .tab').forEach(x=>x.classList.toggle('on',x===b));
+  out.classList.toggle('onlyfound',b.dataset.v==='found'); out.classList.toggle('onlynone',b.dataset.v==='none'); updateList();
+}));
+$('#clear').addEventListener('click',()=>{ out.innerHTML=''; results.length=0; updateList(); });
+$('#foldAll').addEventListener('click',()=>{
+  const all=[...out.querySelectorAll('.result')]; const anyOpen=all.some(r=>!r.classList.contains('folded'));
+  all.forEach(r=>r.classList.toggle('folded',anyOpen)); updateList();
+});
+function updateList(){
+  const n=out.querySelectorAll('.result').length, nf=out.querySelectorAll('.result:not(.nf)').length;
+  $('#cntAll').textContent=n; $('#cntFound').textContent=nf; $('#cntNone').textContent=n-nf; $('#listWrap').classList.toggle('hidden',!n);
+  const all=[...out.querySelectorAll('.result')];
+  $('#foldAll').textContent=all.length&&all.every(r=>r.classList.contains('folded'))?'모두 펼치기':'모두 접기';
+  updateCompare();
+}
+
+/* ---------- 태그 나누기 · 보기 ---------- */
+function splitTags(s){
+  // 가중치 묶음(1.2::a, b::)은 묶음째 하나로, 나머지는 쉼표로 나눔
+  // NAI 방식: "숫자::"는 가중치 열기, 그냥 "::"는 닫기. 안 닫으면 다음 표시까지 이어짐
+  const outT=[]; let w=1, last=0; let m;
+  const re=/(?:(?<=^|[\s,])(-?(?:\d+\.?\d*|\.\d+)|-))?::/g;
+  const push=(txt)=>txt.split(',').map(x=>x.trim()).filter(Boolean).forEach(t=>outT.push({t,w}));
+  while((m=re.exec(s))){
+    push(s.slice(last,m.index)); last=re.lastIndex;
+    if(m[1]!==undefined){ w = m[1]==='-' ? -1 : parseFloat(m[1]); } else w=1;
+  }
+  push(s.slice(last));
+  return outT;
+}
+function normTag(t){ return t.toLowerCase().replace(/[{}\[\]()]/g,'').replace(/\s+/g,' ').trim(); }
+function renderPromptBox(el){
+  const raw=el.dataset.prompt;
+  if((el.dataset.mode||viewMode)==='tags'){
+    const tags=splitTags(raw);
+    el.innerHTML=`<div class="tags">${tags.map(({t,w})=>`<span class="tag ${w>1?'up':w<1?'down':''}" data-copy="${esc(w!==1?w+'::'+t+'::':t)}" title="눌러서 복사">${w!==1?`<i>${w}</i>`:''}${esc(t)}</span>`).join('')}</div>`;
+  }else el.innerHTML=`<pre>${esc(raw)}</pre>`;
+}
+
+/* ---------- 비교 ---------- */
+function updateCompare(){
+  const withP=results.filter(r=>r.prompt||r.uc);
+  $('#cmpCard').classList.toggle('hidden',withP.length<2);
+  if(withP.length<2) return;
+  const A=$('#cmpA'), B=$('#cmpB'); const pa=A.value, pb=B.value;
+  const opts=withP.map(r=>`<option value="${r.id}">${esc(r.name)}</option>`).join('');
+  A.innerHTML=opts; B.innerHTML=opts;
+  A.value=withP.some(r=>r.id==pa)?pa:withP[0].id;
+  B.value=withP.some(r=>r.id==pb)&&pb!==A.value?pb:withP[1].id;
+  runCompare();
+}
+function runCompare(){
+  const a=results.find(r=>r.id==$('#cmpA').value), b=results.find(r=>r.id==$('#cmpB').value);
+  if(!a||!b){ $('#cmpOut').innerHTML=''; return; }
+  if(a===b){ $('#cmpOut').innerHTML='<div class="empty" style="margin-top:10px">서로 다른 그림을 골라주세요.</div>'; return; }
+  const parts=[['베이스 프롬프트','prompt'],['캐릭터 프롬프트','chars'],['네거티브','uc']];
+  let h=''; let same=true;
+  for(const [label,key] of parts){
+    const ta=splitTags(a[key]||''), tb=splitTags(b[key]||'');
+    const ka=new Map(ta.map(x=>[normTag(x.t),x])), kb=new Map(tb.map(x=>[normTag(x.t),x]));
+    const onlyA=ta.filter(x=>!kb.has(normTag(x.t))), onlyB=tb.filter(x=>!ka.has(normTag(x.t)));
+    const wdiff=ta.filter(x=>kb.has(normTag(x.t)) && kb.get(normTag(x.t)).w!==x.w).map(x=>({t:x.t,w:x.w,w2:kb.get(normTag(x.t)).w}));
+    if(!onlyA.length&&!onlyB.length&&!wdiff.length) continue;
+    same=false;
+    const chips=(arr)=>arr.length?`<div class="tags">${arr.map(({t,w})=>`<span class="tag ${w>1?'up':w<1?'down':''}" data-copy="${esc(w!==1?w+'::'+t+'::':t)}" title="눌러서 복사">${w!==1?`<i>${w}</i>`:''}${esc(t)}</span>`).join('')}</div>`:'<div class="empty">없음</div>';
+    h+=`<div class="sec"><div class="sec-h"><span class="t">${label}</span></div>
+      <div class="cmp-col"><div class="h">왼쪽(${esc(a.name)})에만</div>${chips(onlyA)}</div>
+      <div class="cmp-col"><div class="h">오른쪽(${esc(b.name)})에만</div>${chips(onlyB)}</div>
+      ${wdiff.length?`<div class="cmp-col"><div class="h">가중치만 다름</div><div class="tags">${wdiff.map(d=>`<span class="tag" data-copy="${esc(d.t)}" title="눌러서 복사">${esc(d.t)} <i>${d.w} → ${d.w2}</i></span>`).join('')}</div></div>`:''}</div>`;
+  }
+  $('#cmpOut').innerHTML= same?'<div class="empty" style="margin-top:10px">태그가 똑같아요. 시드나 설정만 다를 수 있어요.</div>':h;
+}
+document.addEventListener('click',e=>{ const t=e.target.closest('.tag[data-copy]'); if(t) copyText(t.dataset.copy,'‘'+t.dataset.copy+'’'); });
+$('#cmpA').addEventListener('change',runCompare);
+$('#cmpB').addEventListener('change',runCompare);
+
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+
+/* 끝에 군더더기가 있거나 일부가 깨져도, 풀린 만큼은 살려서 돌려줌 */
+async function inflateRaw(bytes, fmt){
+  const ds=new DecompressionStream(fmt);
+  const writer=ds.writable.getWriter();
+  writer.write(bytes).catch(()=>{}); writer.close().catch(()=>{});
+  const reader=ds.readable.getReader(); const parts=[]; let n=0, err=null;
+  while(true){
+    try{ const {done,value}=await reader.read(); if(done) break; parts.push(value); n+=value.length; }
+    catch(e){ err=e; break; }
+  }
+  const out=new Uint8Array(n); let o=0; for(const p of parts){ out.set(p,o); o+=p.length; }
+  return {out,err};
+}
+function gzipBodyOffset(b){ // gzip 헤더를 건너뛰고 deflate 본문 시작 위치
+  if(b[0]!==0x1f||b[1]!==0x8b) return -1;
+  const flg=b[3]; let p=10;
+  if(flg&4){ p+=2+(b[p]|b[p+1]<<8); }
+  if(flg&8){ while(p<b.length&&b[p]) p++; p++; }
+  if(flg&16){ while(p<b.length&&b[p]) p++; p++; }
+  if(flg&2) p+=2;
+  return p;
+}
+async function inflate(bytes, fmt){
+  let r=await inflateRaw(bytes,fmt);
+  if(!r.err && r.out.length) return r.out;
+  let best=r;
+  // gzip이면 헤더를 직접 건너뛰고 raw deflate로 다시 시도 (꼬리 검사 생략)
+  if(fmt==='gzip'){ const off=gzipBodyOffset(bytes); if(off>0){ const r2=await inflateRaw(bytes.slice(off),'deflate-raw'); if(r2.out.length>best.out.length) best=r2; if(!r2.err) return r2.out; } }
+  if(fmt==='deflate'){ const r2=await inflateRaw(bytes.slice(2),'deflate-raw'); if(r2.out.length>best.out.length) best=r2; if(!r2.err) return r2.out; }
+  if(best.out.length) return best.out; // 일부라도 풀렸으면 그걸 사용
+  throw new Error('압축 데이터가 손상됐어요');
+}
+
+function detectFormat(b){
+  if(b[0]===0x89&&b[1]===0x50&&b[2]===0x4E&&b[3]===0x47) return 'PNG';
+  if(b[0]===0xFF&&b[1]===0xD8) return 'JPEG';
+  if(tdl.decode(b.slice(0,4))==='RIFF'&&tdl.decode(b.slice(8,12))==='WEBP') return 'WebP';
+  if(tdl.decode(b.slice(4,12)).includes('ftypavif')) return 'AVIF';
+  return '알 수 없음';
+}
+
+/* ---------- PNG text chunks ---------- */
+async function readPngText(b){
+  const res=[]; const dv=new DataView(b.buffer,b.byteOffset,b.byteLength);
+  let p=8;
+  while(p+8<=b.length){
+    const len=dv.getUint32(p); const type=tdl.decode(b.slice(p+4,p+8));
+    const data=b.slice(p+8,p+8+len);
+    try{
+      if(type==='tEXt'){
+        const z=data.indexOf(0);
+        res.push({key:tdl.decode(data.slice(0,z)),val:decodeSmart(data.slice(z+1)),src:'PNG tEXt'});
+      }else if(type==='zTXt'){
+        const z=data.indexOf(0);
+        const v=await inflate(data.slice(z+2),'deflate');
+        res.push({key:tdl.decode(data.slice(0,z)),val:decodeSmart(v),src:'PNG zTXt'});
+      }else if(type==='iTXt'){
+        let z=data.indexOf(0); const key=tdl.decode(data.slice(0,z));
+        const comp=data[z+1]; let q=z+3;
+        q=data.indexOf(0,q)+1; q=data.indexOf(0,q)+1;
+        let v=data.slice(q); if(comp===1) v=await inflate(v,'deflate');
+        res.push({key,val:td.decode(v),src:'PNG iTXt'});
+      }else if(type==='eXIf'){
+        const t=exifText(data); if(t) res.push({key:'EXIF',val:t,src:'PNG eXIf'});
+      }
+    }catch(e){}
+    if(type==='IEND') break;
+    p+=12+len;
+  }
+  return res;
+}
+function decodeSmart(bytes){
+  try{ return new TextDecoder('utf-8',{fatal:true}).decode(bytes); }catch(e){ return tdl.decode(bytes); }
+}
+
+/* ---------- EXIF UserComment / XMP (JPEG, WebP) ---------- */
+/* TIFF(EXIF) 구조를 제대로 따라가서 UserComment / ImageDescription을 길이만큼만 읽음 */
+function decodeUserComment(raw){
+  const head=tdl.decode(raw.slice(0,8)); const body=raw.slice(8);
+  const clean=t=>t.replace(/\u0000+$/,'').trim();
+  if(head.startsWith('UNICODE')){
+    const dec=enc=>{ try{return new TextDecoder(enc).decode(body)}catch(e){return ''} };
+    const be=dec('utf-16be'), le=dec('utf-16le');
+    const bad=t=>(t.match(/[^\x09\x0A\x0D\x20-\x7E -ɏ　-ヿ一-鿿가-힣＀-￯ -⁯]/g)||[]).length;
+    return clean(bad(be)<=bad(le)?be:le);
+  }
+  if(head.startsWith('ASCII')||head==='\0\0\0\0\0\0\0\0') return clean(decodeSmart(body));
+  return clean(decodeSmart(raw));
+}
+function parseTiff(t){
+  const out=[]; if(t.length<8) return out;
+  const le=t[0]===0x49; const dv=new DataView(t.buffer,t.byteOffset,t.byteLength);
+  const u16=o=>dv.getUint16(o,le), u32=o=>dv.getUint32(o,le);
+  const sizes={1:1,2:1,3:2,4:4,5:8,7:1,9:4,10:8};
+  const seen=new Set();
+  const walk=(off,depth)=>{
+    if(depth>3||seen.has(off)||off+2>t.length) return; seen.add(off);
+    const n=u16(off);
+    for(let i=0;i<n;i++){
+      const e=off+2+i*12; if(e+12>t.length) break;
+      const tag=u16(e), type=u16(e+2), cnt=u32(e+4);
+      const sz=(sizes[type]||1)*cnt; const vo=sz<=4?e+8:u32(e+8);
+      if(vo+sz>t.length) continue;
+      const val=t.slice(vo,vo+sz);
+      if(tag===0x8769) walk(u32(e+8),depth+1);
+      else if(tag===0x9286){ const s=decodeUserComment(val); if(s) out.push({key:'UserComment',val:s,src:'EXIF'}); }
+      else if(tag===0x010E){ const s=decodeSmart(val).replace(/\u0000+$/,'').trim(); if(s) out.push({key:'ImageDescription',val:s,src:'EXIF'}); }
+      else if(tag===0x0131){ const s=decodeSmart(val).replace(/\u0000+$/,'').trim(); if(s) out.push({key:'Software',val:s,src:'EXIF'}); }
+      else if(tag===0x9C9C){ const s=new TextDecoder('utf-16le').decode(val).replace(/\u0000+$/,'').trim(); if(s) out.push({key:'XPComment',val:s,src:'EXIF'}); }
+    }
+  };
+  try{ walk(u32(4),0); }catch(e){}
+  return out;
+}
+function exifText(t){ const r=parseTiff(t); return r.length?r.map(x=>x.val).join('\n'):null; }
+function findExif(b,fmt){
+  const blocks=[];
+  if(fmt==='JPEG'){
+    let p=2; const dv=new DataView(b.buffer,b.byteOffset,b.byteLength);
+    while(p+4<b.length && b[p]===0xFF){
+      const m=b[p+1]; if(m===0xDA||m===0xD9) break;
+      const len=dv.getUint16(p+2); const seg=b.slice(p+4,p+2+len);
+      if(m===0xE1 && tdl.decode(seg.slice(0,6))==='Exif\0\0') blocks.push({tiff:seg.slice(6)});
+      if(m===0xE1 && tdl.decode(seg.slice(0,28)).startsWith('http://ns.adobe.com/xap/1.0/')) blocks.push({xmp:seg.slice(29)});
+      if(m===0xFE) blocks.push({com:seg});
+      p+=2+len;
+    }
+  }else if(fmt==='WebP'){
+    let p=12; const dv=new DataView(b.buffer,b.byteOffset,b.byteLength);
+    while(p+8<=b.length){
+      const id=tdl.decode(b.slice(p,p+4)); const len=dv.getUint32(p+4,true); const d=b.slice(p+8,p+8+len);
+      if(id==='EXIF'){ blocks.push({tiff: tdl.decode(d.slice(0,6))==='Exif\0\0'?d.slice(6):d}); }
+      if(id==='XMP ') blocks.push({xmp:d});
+      p+=8+len+(len&1);
+    }
+  }
+  return blocks;
+}
+function readOtherText(b,fmt){
+  const res=[];
+  for(const bl of findExif(b,fmt)){
+    if(bl.tiff) res.push(...parseTiff(bl.tiff));
+    if(bl.com){ const s=decodeSmart(bl.com).trim(); if(s) res.push({key:'JPEG Comment',val:s,src:'JPEG COM'}); }
+    if(bl.xmp){ const xmp=decodeSmart(bl.xmp);
+      if(/prompt|parameters|Comment|description/i.test(xmp)) res.push({key:'XMP',val:xmp,src:'XMP'}); }
+  }
+  return res;
+}
+function _unusedOldXmp(b){
+  const res=[];
+  const s=decodeSmart(b);
+  const x=s.indexOf('<x:xmpmeta'); if(x>=0){
+    const end=s.indexOf('</x:xmpmeta>',x);
+    const xmp=s.slice(x,end>0?end+12:x+20000);
+    if(/prompt|parameters|Comment|description/i.test(xmp)) res.push({key:'XMP',val:xmp,src:'XMP'});
+  }
+  return res;
+}
+
+/* ---------- NovelAI / WebUI stealth (LSB) ---------- */
+async function readStealth(file){
+  let bmp;
+  try{ bmp=await createImageBitmap(file,{premultiplyAlpha:'none',colorSpaceConversion:'none'}); }
+  catch(e){ return null; }
+  const w=bmp.width,h=bmp.height;
+  const c=document.createElement('canvas'); c.width=w; c.height=h;
+  const ctx=c.getContext('2d',{willReadFrequently:true}); ctx.drawImage(bmp,0,0);
+  const px=ctx.getImageData(0,0,w,h).data;
+
+  // 픽셀 통계 (구석구석 분석용)
+  const stats={w,h,transparent:0,alphaVals:new Set(),tried:[]};
+  for(let i=3;i<px.length;i+=4){ if(px[i]<255) stats.transparent++; if(stats.alphaVals.size<300) stats.alphaVals.add(px[i]); }
+  stats.lsb={};
+  for(const [ch,name] of [[0,'R'],[1,'G'],[2,'B'],[3,'A']]){
+    let ones=0,n=0; for(let i=ch;i<px.length&&n<200000;i+=4,n++) ones+=px[i]&1;
+    stats.lsb[name]=n?ones/n:0;
+  }
+
+  const variants=[];
+  for(const order of ['col','row']) for(const mode of ['alpha','rgb']) variants.push([order,mode]);
+  for(const [order,mode] of variants){
+    const per = mode==='alpha'?1:3; const total=w*h*per;
+    let idx=0;
+    const bit=()=>{
+      const pi=Math.floor(idx/per), ch=idx%per; idx++;
+      const x = order==='col'?Math.floor(pi/h):pi%w;
+      const y = order==='col'?pi%h:Math.floor(pi/w);
+      const o=(y*w+x)*4;
+      return px[o+(mode==='alpha'?3:ch)]&1;
+    };
+    const bytesN=n=>{ const r=new Uint8Array(n); for(let i=0;i<n;i++){let v=0;for(let k=0;k<8;k++)v=(v<<1)|bit();r[i]=v;} return r; };
+    if(total<200) continue;
+    const sigBytes=bytesN(15); const sig=tdl.decode(sigBytes);
+    const label=(order==='col'?'세로 순서':'가로 순서')+' · '+(mode==='alpha'?'알파':'RGB');
+    stats.tried.push([label, sig.replace(/[^\x20-\x7E]/g,'·')]);
+    if(!/^stealth_(png|rgb)(info|comp)$/.test(sig)) continue;
+    let len=0; for(let k=0;k<32;k++) len=(len*2)+bit();
+    if(len<=0||len>total-idx) continue;
+    const data=bytesN(Math.floor(len/8));
+    let txt, damaged=false;
+    try{ txt = sig.endsWith('comp') ? td.decode(await inflate(data,'gzip')) : td.decode(data); }
+    catch(e){ txt='(압축을 풀 수 없어요) '+e.message; damaged=true; }
+    return {key:'숨긴 메타 ('+label+')',val:txt,src:sig, w,h, stats, damaged};
+  }
+  return {none:true,w,h,stats};
+}
+
+/* ================= 구석구석 분석 ================= */
+const hex=(n,p=2)=>n.toString(16).toUpperCase().padStart(p,'0');
+const fmtB=n=>n<1024?n+' B':n<1048576?(n/1024).toFixed(1)+' KB':(n/1048576).toFixed(2)+' MB';
+function hexDump(b,start=0,max=256){
+  const lines=[]; const end=Math.min(b.length,max);
+  for(let i=0;i<end;i+=16){
+    const row=b.slice(i,Math.min(i+16,end));
+    lines.push(hex(start+i,8)+'  '+[...row].map(x=>hex(x)).join(' ').padEnd(48)+'  '+[...row].map(x=>x>=32&&x<127?String.fromCharCode(x):'.').join(''));
+  }
+  return lines.join('\n');
+}
+function strings(b,min=6){
+  const out=[]; let cur=[];
+  const flush=()=>{ if(cur.length>=min){ const s=decodeSmart(new Uint8Array(cur)).trim(); if(s.length>=min) out.push(s);} cur=[]; };
+  for(let i=0;i<b.length;i++){
+    const c=b[i];
+    if((c>=0x20&&c<0x7F)||c===9||c===10||c===13||c>=0x80) cur.push(c); else flush();
+    if(out.length>400) break;
+  }
+  flush();
+  // 바이너리 쓰레기 걸러내기: 사람이 읽을 만한 비율이 높은 것만
+  return out.filter(s=>(s.match(/[A-Za-z0-9가-힣ぁ-んァ-ン一-龥 ,.:_\-\/]/g)||[]).length/s.length>0.85);
+}
+function sniff(b){
+  const s=tdl.decode(b.slice(0,8));
+  if(s.startsWith('PK\x03\x04')) return 'ZIP 압축파일';
+  if(b[0]===0x89&&b[1]===0x50&&b[2]===0x4E&&b[3]===0x47) return 'PNG 이미지';
+  if(b[0]===0xFF&&b[1]===0xD8) return 'JPEG 이미지';
+  if(s.startsWith('7z')) return '7z 압축파일';
+  if(s.startsWith('Rar!')) return 'RAR 압축파일';
+  if(s.startsWith('%PDF')) return 'PDF';
+  if(s.startsWith('GIF8')) return 'GIF';
+  if(b[0]===0x1F&&b[1]===0x8B) return 'gzip';
+  if(s.startsWith('RIFF')) return 'RIFF(WebP/WAV 등)';
+  if(s.trim().startsWith('{')) return 'JSON 텍스트';
+  return null;
+}
+
+const TAGS={0x010E:'ImageDescription',0x010F:'Make',0x0110:'Model',0x0112:'Orientation',0x011A:'XResolution',0x011B:'YResolution',0x0128:'ResolutionUnit',0x0131:'Software',0x0132:'DateTime',0x013B:'Artist',0x8298:'Copyright',0x8769:'ExifIFD',0x8825:'GPSIFD',0xA005:'InteropIFD',0x9000:'ExifVersion',0x9003:'DateTimeOriginal',0x9004:'DateTimeDigitized',0x9010:'OffsetTime',0x9011:'OffsetTimeOriginal',0x9286:'UserComment',0x927C:'MakerNote',0xA001:'ColorSpace',0xA002:'PixelXDimension',0xA003:'PixelYDimension',0xA420:'ImageUniqueID',0xA430:'CameraOwnerName',0xA431:'BodySerialNumber',0xA434:'LensModel',0x829A:'ExposureTime',0x829D:'FNumber',0x8827:'ISO',0x920A:'FocalLength',0x9C9B:'XPTitle',0x9C9C:'XPComment',0x9C9D:'XPAuthor',0x9C9E:'XPKeywords',0x9C9F:'XPSubject',0x0201:'ThumbnailOffset',0x0202:'ThumbnailLength',0x0103:'Compression',
+  'g1':'GPSLatitudeRef','g2':'GPSLatitude','g3':'GPSLongitudeRef','g4':'GPSLongitude','g6':'GPSAltitude','g29':'GPSDateStamp'};
+function dumpTiff(t){
+  const rows=[]; if(t.length<8) return rows;
+  const le=t[0]===0x49; const dv=new DataView(t.buffer,t.byteOffset,t.byteLength);
+  const u16=o=>dv.getUint16(o,le), u32=o=>dv.getUint32(o,le), i32=o=>dv.getInt32(o,le);
+  const sizes={1:1,2:1,3:2,4:4,5:8,6:1,7:1,8:2,9:4,10:8,11:4,12:8};
+  const seen=new Set();
+  const walk=(off,ifd,depth)=>{
+    if(depth>4||seen.has(off)||off<8||off+2>t.length) return; seen.add(off);
+    const n=u16(off); if(n>500) return;
+    for(let i=0;i<n;i++){
+      const e=off+2+i*12; if(e+12>t.length) break;
+      const tag=u16(e), type=u16(e+2), cnt=u32(e+4);
+      const sz=(sizes[type]||1)*cnt; const vo=sz<=4?e+8:u32(e+8);
+      const name=(ifd==='GPS'?TAGS['g'+tag]:TAGS[tag])||('0x'+hex(tag,4));
+      if(tag===0x8769){ walk(u32(e+8),'Exif',depth+1); continue; }
+      if(tag===0x8825){ walk(u32(e+8),'GPS',depth+1); continue; }
+      if(tag===0xA005){ walk(u32(e+8),'Interop',depth+1); continue; }
+      let v='';
+      if(vo+sz>t.length){ v='(범위 밖)'; }
+      else if(type===2) v=decodeSmart(t.slice(vo,vo+sz)).replace(/\u0000+$/,'');
+      else if(type===3) v=[...Array(Math.min(cnt,16))].map((_,k)=>u16(vo+k*2)).join(', ');
+      else if(type===4) v=[...Array(Math.min(cnt,16))].map((_,k)=>u32(vo+k*4)).join(', ');
+      else if(type===5||type===10) v=[...Array(Math.min(cnt,8))].map((_,k)=>{const a=type===5?u32(vo+k*8):i32(vo+k*8),b2=type===5?u32(vo+k*8+4):i32(vo+k*8+4);return b2?(+(a/b2).toFixed(4)):a+'/0';}).join(', ');
+      else if(tag===0x9286) v=decodeUserComment(t.slice(vo,vo+sz));
+      else if(tag>=0x9C9B&&tag<=0x9C9F) v=new TextDecoder('utf-16le').decode(t.slice(vo,vo+sz)).replace(/\u0000+$/,'');
+      else { const raw=t.slice(vo,vo+Math.min(sz,64)); const s=decodeSmart(raw); v=/^[\x20-\x7E]+$/.test(s.replace(/\u0000/g,''))?s.replace(/\u0000/g,''):[...raw].map(x=>hex(x)).join(' ')+(sz>64?' …':''); }
+      if(v.length>300) v=v.slice(0,300)+' … ('+v.length+'자)';
+      rows.push([ifd,name,v]);
+    }
+    const next=off+2+n*12; if(next+4<=t.length && ifd==='IFD0'){ const nx=u32(next); if(nx) walk(nx,'IFD1(썸네일)',depth+1); }
+  };
+  try{ walk(u32(4),'IFD0',0); }catch(e){}
+  return rows;
+}
+
+const ZZ=[0,1,8,16,9,2,3,10,17,24,32,25,18,11,4,5,12,19,26,33,40,48,41,34,27,20,13,6,7,14,21,28,35,42,49,56,57,50,43,36,29,22,15,23,30,37,44,51,58,59,52,45,38,31,39,46,53,60,61,54,47,55,62,63];
+const STD_L=[16,11,10,16,24,40,51,61,12,12,14,19,26,58,60,55,14,13,16,24,40,57,69,56,14,17,22,29,51,87,80,62,18,22,37,56,68,109,103,77,24,35,55,64,81,104,113,92,49,64,78,87,103,121,120,101,72,92,95,98,112,100,103,99];
+function jpegQuality(q){ // q: zigzag 순서 64개
+  let s=0; for(let i=0;i<64;i++) s+=q[i]/STD_L[ZZ[i]]*100;
+  const scale=s/64; const qual=scale<=100?(200-scale)/2:5000/scale;
+  return Math.max(1,Math.min(100,Math.round(qual)));
+}
+
+function deepPNG(b){
+  const R={chunks:[],info:[],meta:[],trailing:null};
+  const dv=new DataView(b.buffer,b.byteOffset,b.byteLength); let p=8; let end=b.length;
+  while(p+8<=b.length){
+    const len=dv.getUint32(p); const type=tdl.decode(b.slice(p+4,p+8)); const d=b.slice(p+8,p+8+len);
+    R.chunks.push([type,p,len]);
+    if(type==='IHDR'){ const ct={0:'흑백',2:'RGB',3:'팔레트',4:'흑백+알파',6:'RGBA'}[d[9]]||d[9];
+      R.info.push(['크기',dv.getUint32(p+8)+'×'+dv.getUint32(p+12)],['비트 깊이',d[8]],['색상 방식',ct],['인터레이스',d[12]?'Adam7':'없음']); }
+    else if(type==='tIME'){ const y=(d[0]<<8)|d[1]; R.info.push(['수정 시각(tIME)',`${y}-${String(d[2]).padStart(2,'0')}-${String(d[3]).padStart(2,'0')} ${String(d[4]).padStart(2,'0')}:${String(d[5]).padStart(2,'0')}:${String(d[6]).padStart(2,'0')} UTC`]); }
+    else if(type==='pHYs'){ const x=dv.getUint32(p+8),y=dv.getUint32(p+12); R.info.push(['해상도(pHYs)',d[8]===1?Math.round(x*0.0254)+' dpi':x+'×'+y]); }
+    else if(type==='gAMA') R.info.push(['감마',(dv.getUint32(p+8)/100000).toString()]);
+    else if(type==='sRGB') R.info.push(['sRGB','있음']);
+    else if(type==='iCCP'){ const z=d.indexOf(0); R.info.push(['ICC 프로필',tdl.decode(d.slice(0,z))]); }
+    else if(type==='caBX'||type==='cABX') R.meta.push(['C2PA 콘텐츠 자격증명 ('+type+')',strings(d,5).slice(0,80).join('\n')]);
+    else if(!['IDAT','IEND','PLTE','tRNS','tEXt','zTXt','iTXt','bKGD','cHRM','sBIT','acTL','fcTL','fdAT'].includes(type)){
+      const s=strings(d,4); R.meta.push(['알 수 없는 청크 '+type+' ('+fmtB(len)+')',(s.length?s.slice(0,50).join('\n')+'\n\n':'')+hexDump(d,0,128)]);
+    }
+    p+=12+len;
+    if(type==='IEND'){ end=p; break; }
+  }
+  if(end<b.length) R.trailing=b.slice(end);
+  R.metaRegion=b.slice(0,0); // 아래에서 IDAT 제외 영역 문자열 추출
+  const parts=[]; for(const [t,o,l] of R.chunks) if(t!=='IDAT'&&t!=='fdAT') parts.push(b.slice(o+8,o+8+l));
+  R.textBytes=parts;
+  return R;
+}
+function deepJPEG(b){
+  const R={chunks:[],info:[],meta:[],trailing:null,textBytes:[]};
+  const dv=new DataView(b.buffer,b.byteOffset,b.byteLength); let p=2; const qs=[];
+  const names={0xE0:'APP0',0xE1:'APP1',0xE2:'APP2',0xEB:'APP11',0xEC:'APP12',0xED:'APP13',0xEE:'APP14',0xFE:'COM',0xDB:'DQT',0xC4:'DHT',0xC0:'SOF0(기본)',0xC2:'SOF2(프로그레시브)',0xDD:'DRI',0xDA:'SOS'};
+  while(p+4<=b.length && b[p]===0xFF){
+    const m=b[p+1]; if(m===0xD8||m===0x01||(m>=0xD0&&m<=0xD7)){p+=2;continue;}
+    const len=dv.getUint16(p+2); const seg=b.slice(p+4,p+2+len);
+    const idStr=tdl.decode(seg.slice(0,30)).split('\0')[0].replace(/[^\x20-\x7E]/g,'');
+    R.chunks.push([(names[m]||'FF'+hex(m))+((m>=0xE0&&m<=0xEF)&&idStr?' · '+idStr.slice(0,28):''),p,len]);
+    if(m>=0xE0&&m<=0xEF||m===0xFE) R.textBytes.push(seg);
+    if(m===0xDB){ let q=0; while(q<seg.length){ const pq=seg[q]>>4, id=seg[q]&15; const t=[]; for(let i=0;i<64;i++) t.push(pq?(seg[q+1+i*2]<<8|seg[q+2+i*2]):seg[q+1+i]); qs[id]=t; q+=1+64*(pq?2:1);} }
+    if(m===0xC0||m===0xC2){ R.info.push(['크기',dv.getUint16(p+7)+'×'+dv.getUint16(p+5)],['방식',m===0xC2?'프로그레시브':'기본'],['색 성분',seg[5]+'개']);
+      if(seg[5]===3){ const h=seg[7]>>4,v=seg[7]&15; R.info.push(['크로마 서브샘플링',h===2&&v===2?'4:2:0':h===2&&v===1?'4:2:2':'4:4:4']); } }
+    if(m===0xE0&&idStr==='JFIF'){ R.info.push(['JFIF','v'+seg[5]+'.'+String(seg[6]).padStart(2,'0')]); }
+    if(m===0xE2&&idStr.startsWith('ICC_PROFILE')){ const desc=strings(seg,4).find(s=>/sRGB|Display|Adobe|P3|ICC/i.test(s)); if(desc) R.info.push(['ICC 프로필',desc]); }
+    if(m===0xEB) R.meta.push(['APP11 (C2PA/JUMBF 콘텐츠 자격증명)',strings(seg,5).slice(0,80).join('\n')]);
+    if(m===0xED&&idStr.startsWith('Photoshop')) R.info.push(['Photoshop IRB','있음 (포토샵 저장 흔적)']);
+    if(m===0xEE&&idStr.startsWith('Adobe')) R.info.push(['Adobe APP14','있음']);
+    if(m===0xDA){
+      // 엔트로피 데이터 끝(EOI) 찾기
+      let i=p+2+len;
+      while(i<b.length-1){ if(b[i]===0xFF){ const n=b[i+1]; if(n===0xD9){ i+=2; break; } if(n!==0&&!(n>=0xD0&&n<=0xD7)&&n!==0xFF){ /* 다음 스캔(프로그레시브) */ break; } } i++; }
+      if(b[i-2]===0xFF&&b[i-1]===0xD9){ if(i<b.length) R.trailing=b.slice(i); R.chunks.push(['이미지 데이터 + EOI',p+2+len,i-(p+2+len)]); break; }
+      p=i; continue;
+    }
+    p+=2+len;
+  }
+  if(qs[0]){ const q=jpegQuality(qs[0]); R.info.push(['추정 JPEG 품질',q+'%']);
+    R.quality=q; }
+  return R;
+}
+function deepWebP(b){
+  const R={chunks:[],info:[],meta:[],trailing:null,textBytes:[]};
+  const dv=new DataView(b.buffer,b.byteOffset,b.byteLength);
+  const riff=dv.getUint32(4,true)+8; let p=12;
+  while(p+8<=Math.min(riff,b.length)){
+    const id=tdl.decode(b.slice(p,p+4)); const len=dv.getUint32(p+4,true);
+    R.chunks.push([id.trim(),p,len]);
+    if(id==='VP8X'){ const w=1+(b[p+12]|b[p+13]<<8|b[p+14]<<16), h=1+(b[p+15]|b[p+16]<<8|b[p+17]<<16); R.info.push(['크기',w+'×'+h],['플래그',[b[p+8]&16?'알파':'',b[p+8]&8?'EXIF':'',b[p+8]&4?'XMP':'',b[p+8]&32?'ICC':'',b[p+8]&2?'애니메이션':''].filter(Boolean).join(', ')||'없음']); }
+    if(id==='VP8L') R.info.push(['압축','무손실(VP8L)']);
+    if(id==='VP8 ') R.info.push(['압축','손실(VP8)']);
+    if(!['VP8 ','VP8L','ALPH','ANMF'].includes(id)) R.textBytes.push(b.slice(p+8,p+8+len));
+    p+=8+len+(len&1);
+  }
+  if(riff<b.length) R.trailing=b.slice(riff);
+  return R;
+}
+
+async function unzipTexts(z){
+  const out=[]; const dv=new DataView(z.buffer,z.byteOffset,z.byteLength); let p=0;
+  while(p+30<=z.length && dv.getUint32(p,true)===0x04034b50 && out.length<50){
+    const method=dv.getUint16(p+8,true), csize=dv.getUint32(p+18,true), usize=dv.getUint32(p+22,true);
+    const nlen=dv.getUint16(p+26,true), xlen=dv.getUint16(p+28,true);
+    const name=decodeSmart(z.slice(p+30,p+30+nlen)); const ds=p+30+nlen+xlen; const data=z.slice(ds,ds+csize);
+    let content=null, note='';
+    try{
+      if(method===0) content=data; else if(method===8) content=await inflate(data,'deflate-raw'); else note='(지원 안 하는 압축 방식 '+method+')';
+    }catch(e){ note='(압축 해제 실패)'; }
+    if(content){ const kind=sniff(content); if(kind&&/이미지/.test(kind)) note='('+kind+', '+fmtB(content.length)+')'; else { const s=decodeSmart(content.slice(0,20000)); note=s.length>3000?s.slice(0,3000)+' …':s; } }
+    out.push({name,size:usize,note,content});
+    p=ds+csize;
+  }
+  return out;
+}
+
+function deepReport(b,fmt,st){
+  const R = fmt==='PNG'?deepPNG(b):fmt==='JPEG'?deepJPEG(b):fmt==='WebP'?deepWebP(b):{chunks:[],info:[],meta:[],trailing:null,textBytes:[b.slice(0,65536)]};
+  const secs=[]; // [제목, 내용(text), isKV]
+  const notes=[];
+
+  // 기본 정보
+  const info=[['파일 크기',fmtB(b.length)],['형식',fmt],...R.info.map(([k,v])=>[k,String(v)])];
+  if(st&&st.stats){
+    const s=st.stats; const px=s.w*s.h;
+    info.push(['투명 픽셀',s.transparent?s.transparent.toLocaleString()+'개 ('+(s.transparent/px*100).toFixed(1)+'%)':'없음']);
+    info.push(['최하위 비트 1 비율',Object.entries(s.lsb).map(([k,v])=>k+' '+(v*100).toFixed(1)+'%').join(' · ')]);
+  }
+  secs.push(['기본 정보',info,true]);
+
+  // 구조
+  if(R.chunks.length) secs.push(['파일 구조 ('+R.chunks.length+'개 블록)',R.chunks.map(([t,o,l])=>hex(o,8)+'  '+t.padEnd(22)+' '+fmtB(l)).join('\n')]);
+
+  // EXIF 전체
+  const tiffs=[];
+  if(fmt==='PNG'){ for(const [t,o,l] of R.chunks) if(t==='eXIf') tiffs.push(b.slice(o+8,o+8+l)); }
+  else for(const bl of findExif(b,fmt)) if(bl.tiff) tiffs.push(bl.tiff);
+  for(const t of tiffs){ const rows=dumpTiff(t); if(rows.length) secs.push(['EXIF 전체 ('+rows.length+'개 태그)',rows.map(([i,n,v])=>`[${i}] ${n}: ${v}`).join('\n')]);
+    if(rows.some(r=>r[0]==='GPS')) notes.push('📍 GPS 위치 정보가 들어 있어요.');
+    if(rows.some(r=>r[1]==='Make'||r[1]==='Model')) notes.push('📷 카메라/기기 정보가 들어 있어요.'); }
+
+  // 기타 메타 블록
+  for(const [t,v] of R.meta) secs.push([t,v||'(읽을 수 있는 글자가 없어요)']);
+  if(R.meta.some(m=>/C2PA/.test(m[0]))) notes.push('🔏 C2PA 콘텐츠 자격증명(AI 생성 표시 등)이 들어 있어요.');
+
+  // 메타 영역 문자열
+  const strs=[...new Set(R.textBytes.flatMap(x=>strings(x,6)))];
+  if(strs.length) secs.push(['메타 영역에서 찾은 글자 ('+strs.length+'개)',strs.slice(0,300).map(s=>s.length>500?s.slice(0,500)+' …':s).join('\n')]);
+
+  // 꼬리 데이터
+  if(R.trailing && R.trailing.length){
+    const t=R.trailing; const kind=sniff(t); const allZero=t.every(x=>x===0);
+    notes.push(allZero?'파일 끝에 빈 데이터 '+fmtB(t.length)+'가 붙어 있어요. 보통은 의미 없는 데이터예요.':'⚠️ 이미지가 끝난 뒤에 '+fmtB(t.length)+'짜리 데이터가 몰래 붙어 있어요'+(kind?' ('+kind+'로 보임)':'')+'.');
+    if(!allZero){ const s=strings(t,4); secs.push(['파일 끝에 붙은 데이터 ('+fmtB(t.length)+')',(kind?'형식 추정: '+kind+'\n\n':'')+(s.length?'[글자]\n'+s.slice(0,100).join('\n')+'\n\n':'')+'[HEX]\n'+hexDump(t,0,512)]); }
+  }
+
+  // 숨김 메타 시도 결과
+  if(st&&st.stats&&st.stats.tried.length) secs.push(['숨긴 메타 찾기 시도 결과',st.stats.tried.map(([l,s])=>l.padEnd(12)+' → '+s+(/^stealth_/.test(s)?'  ✅':'')).join('\n')]);
+
+  // 재압축 추정
+  if(fmt==='JPEG'){
+    const hasApp=R.chunks.some(c=>/APP1 · Exif|APP1 · http/.test(c[0]));
+    if(R.quality===85&&!hasApp) notes.push('🐦 품질 85%에 EXIF가 없는 JPEG예요. 트위터(X) 같은 SNS에서 재압축된 파일일 가능성이 높아요.');
+    else if(!hasApp) notes.push('EXIF/XMP가 없는 JPEG예요. SNS·메신저를 거쳤거나 메타를 지우고 저장한 파일일 수 있어요.');
+  }
+  if(fmt==='PNG' && st && st.stats && st.stats.transparent===0 && !st.val) notes.push('투명도 채널이 전부 불투명이라 숨긴 메타는 없거나 지워진 상태예요.');
+
+  secs.push(['파일 앞부분 HEX',hexDump(b,0,256)]);
+  return {secs,notes,trailing:R.trailing};
+}
+
+/* ---------- 정리 ---------- */
+function tryJSON(s){ try{ const j=JSON.parse(s); return (j&&typeof j==='object')?j:null; }catch(e){ return null; } }
+
+function interpret(entries){
+  // 사람이 보기 좋은 섹션들로 정리
+  const secs=[]; let kind=null; const info=[]; const data={prompt:'',chars:[],charNegs:[],uc:'',settings:''}; let naiSeen=false;
+  for(const e of entries){
+    const j=tryJSON(e.val);
+    // NovelAI: Comment JSON (PNG) 또는 stealth 전체 JSON
+    let nai=null;
+    if(j && (j.prompt!==undefined || j.uc!==undefined || j.v4_prompt)) nai=j;
+    if(j && j.Comment){ const c=tryJSON(j.Comment); if(c) nai=c; if(j.Software) info.push(['Software',j.Software]); if(j.Source) info.push(['Source',j.Source]); }
+    if(nai && naiSeen){ // 같은 정보가 일반 메타와 숨긴 메타에 둘 다 있으면 한 번만
+      secs.forEach(x=>{ if(x[3]==='p' && !x[2].includes(e.src)) x[2]+=' · '+e.src; });
+      continue;
+    }
+    if(nai){
+      naiSeen=true;
+      kind='NovelAI';
+      if(nai.prompt){ secs.push(['베이스 프롬프트',nai.prompt,e.src,'p']); data.prompt=nai.prompt; }
+      const v4=nai.v4_prompt?.caption;
+      if(v4?.char_captions?.length){
+        const pos=(cc)=>{ const c=cc.centers&&cc.centers[0]; if(!nai.v4_prompt.use_coords||!c) return ''; const col='ABCDE'[Math.max(0,Math.min(4,Math.round((c.x-0.1)/0.2)))], row=Math.max(1,Math.min(5,Math.round((c.y-0.1)/0.2)+1)); return ' · '+col+row; };
+        v4.char_captions.forEach((cc,i)=>{ secs.push(['캐릭터 '+(i+1)+pos(cc),cc.char_caption,e.src,'p']); data.chars.push(cc.char_caption); });
+      }
+      if(nai.uc){ secs.push(['네거티브',nai.uc,e.src,'p']); data.uc=nai.uc; }
+      const v4n=nai.v4_negative_prompt?.caption;
+      if(v4n?.char_captions?.length){
+        v4n.char_captions.forEach((cc,i)=>{ data.charNegs[i]=cc.char_caption||''; if(cc.char_caption) secs.push(['캐릭터 '+(i+1)+' 네거티브',cc.char_caption,e.src,'p']); });
+      }
+      for(const k of ['steps','scale','cfg_rescale','seed','sampler','noise_schedule','width','height','strength','request_type']){
+        if(nai[k]!==undefined) info.push([k,String(nai[k])]);
+      }
+      data.settings=['steps','scale','cfg_rescale','seed','sampler','noise_schedule','width','height'].filter(k=>nai[k]!==undefined).map(k=>k+': '+nai[k]).join(', ');
+      continue;
+    }
+    if(e.key==='Software'||e.key==='Source'){ info.push([e.key,e.val]); continue; }
+    if(e.key==='Title'||e.key==='Description'){ if(e.key==='Description') secs.push(['Description',e.val,e.src]); continue; }
+    if(e.key==='Generation time'){ info.push(['생성 시간',e.val]); continue; }
+    // A1111 / Forge parameters
+    if(e.key==='parameters' || /Negative prompt:|Steps: \d+/.test(e.val)){
+      kind=kind||'Stable Diffusion WebUI';
+      const v=e.val; const ni=v.indexOf('\nNegative prompt:'); const si=v.search(/\nSteps: \d+/);
+      const pEnd = ni>=0?ni:(si>=0?si:v.length);
+      data.prompt=v.slice(0,pEnd).trim(); secs.push(['프롬프트',data.prompt,e.src,'p']);
+      if(ni>=0){ data.uc=v.slice(ni+17,si>ni?si:v.length).trim(); secs.push(['네거티브',data.uc,e.src,'p']); }
+      if(si>=0){ data.settings=v.slice(si+1).trim(); secs.push(['설정',data.settings,e.src]); }
+      continue;
+    }
+    if((e.key==='prompt'||e.key==='workflow') && j){
+      kind=kind||'ComfyUI';
+      if(e.key==='prompt'){
+        const texts=[]; for(const id in j){ const n=j[id]; if(n?.inputs && typeof n.inputs.text==='string') texts.push(n.inputs.text); }
+        texts.forEach((t,i)=>secs.push(['텍스트 노드 '+(i+1),t,e.src]));
+      }
+      secs.push([e.key+' (JSON 원본)',JSON.stringify(j,null,2),e.src]);
+      continue;
+    }
+    secs.push([e.key,j?JSON.stringify(j,null,2):e.val,e.src]);
+  }
+  const seenI=new Set(); const info2=info.filter(([k,v])=>{ const key=k+'\u0000'+v; if(seenI.has(key)) return false; seenI.add(key); return true; });
+  return {kind,secs,info:info2,data};
+}
+
+
+async function handle(files){
+  files=files.filter(isImg); if(!files.length) return;
+  out.innerHTML=''; results.length=0;
+  $('#listWrap').classList.remove('hidden');
+  for(const f of files){
+    const box=document.createElement('div'); box.className='result'+(files.length>1?' folded':'');
+    out.appendChild(box);
+    box.innerHTML='<div class="head"><div class="info"><div class="name">'+esc(f.name)+'</div><div class="meta">읽는 중…</div></div></div>';
+    updateList();
+    try{ await analyze(f,box); }catch(e){ box.innerHTML='<div class="head"><div class="info"><div class="name">'+esc(f.name)+'</div><div class="meta">읽다가 오류가 났어요: '+esc(e.message)+'</div></div><button class="x" title="빼기">×</button></div>'; bindHead(box,null); }
+    updateList();
+  }
+  if(files.length===1) out.lastElementChild?.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+function bindHead(box,id){
+  const head=box.querySelector('.head');
+  head.addEventListener('click',e=>{ if(e.target.closest('.x')) return; box.classList.toggle('folded'); updateList(); });
+  head.querySelector('.x')?.addEventListener('click',()=>{
+    box.remove(); const i=results.findIndex(r=>r.id===id); if(i>=0) results.splice(i,1); updateList();
+  });
+}
+
+async function analyze(f,box,depth=0){
+  const b=new Uint8Array(await f.arrayBuffer());
+  const fmt=detectFormat(b);
+  let entries = fmt==='PNG' ? await readPngText(b) : readOtherText(b,fmt);
+  const st=await readStealth(f);
+  let hasStealth=false;
+  if(st && !st.none){ entries.push(st); hasStealth=true; }
+  const {kind,secs,info,data}=interpret(entries);
+  const id=++rid;
+
+  const url=URL.createObjectURL(f);
+  const size=fmtB(f.size);
+  const dims=st?` · ${st.w}×${st.h}`:'';
+  const extMismatch = fmt!=='알 수 없음' && !new RegExp('\\.('+({PNG:'png',JPEG:'jpe?g',WebP:'webp',AVIF:'avif'}[fmt])+')$','i').test(f.name);
+  const damaged=!!(st&&st.damaged);
+  const found=(secs.length>0||!!kind)&&!damaged;
+  const editorSw=(info.find(([k])=>k==='Software')||[])[1]||'';
+  const editorName=/Celsys|CLIP STUDIO/i.test(editorSw)?'클립스튜디오':/Photoshop/i.test(editorSw)?'포토샵':/ibisPaint/i.test(editorSw)?'이비스페인트':/GIMP/i.test(editorSw)?'김프':/Procreate/i.test(editorSw)?'프로크리에이트':/MediBang/i.test(editorSw)?'메디방':/NovelAI/i.test(editorSw)?'':editorSw;
+
+  const chips = found
+    ? `<span class="chip ok">메타 있음</span>${kind?`<span class="chip">${kind}</span>`:''}${hasStealth?'<span class="chip">숨긴 메타</span>':''}`
+    : `<span class="chip warn">${damaged?'숨긴 메타 손상':info.length?'프롬프트 없음 · 편집 정보만':'메타 없음'}</span>`;
+
+  let h=`<div class="head"><img src="${url}" alt=""><div class="info">
+    <div class="name">${esc(f.name)}</div>
+    <div class="meta">${fmt}${extMismatch?' (확장자와 다름)':''} · ${size}${dims}</div>
+    <div class="chips">${chips}</div>
+  </div><span class="arrow">▴</span><button class="x" title="빼기">×</button></div>`;
+
+  // 한 번에 복사 (접혀 있어도 보임)
+  if(found && (data.prompt||data.uc)){
+    const btns=[['전체','all']];
+    if(data.prompt) btns.push(['베이스','prompt']);
+    if(data.chars.length) btns.push([data.chars.length>1?'캐릭터 ▾':'캐릭터','chars']);
+    if(data.uc) btns.push(['네거','uc']);
+    if(data.settings) btns.push(['설정','settings']);
+    h+=`<div class="quick"><span class="ql">복사</span>${btns.map(([l,k])=>`<button data-q="${k}" >${l}</button>`).join('')}</div>`;
+    if(data.chars.length>1) h+=`<div class="quick charpick hidden"><span class="ql">캐릭터</span>${data.chars.map((c,i)=>`<button data-ci="${i}">${i+1}번</button>`).join('')}<button data-ci="all">모두</button></div>`;
+  }
+  h+=`<div class="body">`;
+
+  if(info.length){
+    const I=Object.fromEntries(info); const g=[];
+    if(I.Source) g.push([I.Source.replace(/\s+[0-9A-F]{8}$/,''),I.Source]);
+    if(I.width&&I.height) g.push([I.width+'×'+I.height,I.width+'x'+I.height]);
+    if(I.steps) g.push(['스텝 '+I.steps,I.steps]);
+    if(I.scale) g.push(['CFG '+I.scale,I.scale]);
+    if(I.cfg_rescale&&I.cfg_rescale!=='0') g.push(['리스케일 '+I.cfg_rescale,I.cfg_rescale]);
+    if(I.sampler) g.push([I.sampler.replace(/^k_/,''),I.sampler]);
+    if(I.noise_schedule) g.push([I.noise_schedule,I.noise_schedule]);
+    if(I.strength) g.push(['강도 '+I.strength,I.strength]);
+    if(I.seed) g.push(['시드 '+I.seed,I.seed]);
+    if(I['생성 시간']) g.push([I['생성 시간'],I['생성 시간']]);
+    const sw=info.filter(([k])=>k==='Software').map(([,v])=>v).filter(v=>!/^NovelAI$/i.test(v));
+    sw.forEach(v=>g.push(['저장: '+v,v]));
+    if(g.length) h+=`<div class="gen">${g.map(([l,v])=>`<button class="g" data-v="${esc(v)}" title="눌러서 복사">${esc(l)}</button>`).join('')}</div>`;
+  }
+  secs.filter(([t,v])=>!(/Description|XMP/.test(t) && data.prompt && v.includes(data.prompt.slice(0,60)))).forEach(([t,v,src,isP])=>{
+    h+=`<div class="sec"><div class="sec-h"><span class="t">${esc(t)}<span class="src">${esc((src||'').replace(/stealth_\w+/g,'숨긴 메타'))}</span></span><span class="acts">${isP?'<span class="mini"><button data-m="raw" class="on">원본</button><button data-m="tags">태그별로</button></span>':''}<button class="copy">복사</button></span></div>${isP?`<div data-prompt="${esc(v)}"></div>`:`<pre>${esc(v)}</pre>`}</div>`;
+  });
+
+  if(!found){
+    h+= damaged ? `<div class="why"><b>숨긴 메타는 있는데 손상돼서 읽을 수 없어요.</b><ul><li>숨긴 메타의 시작 표시와 앞부분은 멀쩡한데, 그 뒤 본문이 깨져 있어요.</li><li>그림 왼쪽 가장자리를 편집했거나, 메타를 망가뜨리는 도구를 거쳤을 때 이렇게 돼요.</li><li>깨진 곳이 앞쪽이라 복구할 수 없어요.</li></ul></div>` : `<div class="why"><b>이 그림에서는 프롬프트를 찾을 수 없어요.</b><ul>
+      ${editorName?`<li><b>${esc(editorName)}</b>(으)로 다시 저장된 파일이에요. 저장할 때 원래 메타가 지워졌어요. 그냥 열고 저장만 했으면 숨긴 메타가 남는 경우도 있지만, 레이어를 합치거나 편집했으면 그것까지 지워져요.</li>`:''}
+      ${fmt!=='PNG'?`<li>${fmt} 파일이에요. SNS나 메신저를 거치면서 PNG가 ${fmt}로 바뀌면 메타가 같이 지워져요.</li>`:''}
+      <li>SNS, 디스코드, 카톡 등에서 저장했거나 캡처한 그림이면 이미 지워진 상태라 복구할 수 없어요.</li>
+      <li>숨긴 메타(NovelAI가 투명도 채널에 넣는 정보)도 확인했지만 없었어요.</li>
+    </ul></div>`;
+  }
+  if(entries.length){
+    h+=`<details><summary>원본 데이터 전체 보기 (${entries.length}개 항목)</summary>${entries.map(e=>`<div class="sec"><div class="sec-h"><span class="t">${esc(e.key)}<span class="src">${esc(e.src)}</span></span><button class="copy">복사</button></div><pre>${esc(e.val)}</pre></div>`).join('')}</details>`;
+  }
+  // 구석구석 분석
+  let deep;
+  try{ deep=deepReport(b,fmt,st); }catch(e){ deep={secs:[['오류',e.message]],notes:[]}; }
+  const hiddenFiles=[];
+  if(deep.trailing && deep.trailing.length){
+    const t=deep.trailing, tk=sniff(t);
+    if(tk==='ZIP 압축파일'){
+      try{
+        const ents=await unzipTexts(t);
+        if(ents.length){
+          deep.secs.splice(1,0,['파일 끝에 붙은 ZIP 안의 파일 ('+ents.length+'개)',ents.map(e=>'▶ '+e.name+' ('+fmtB(e.size)+')\n'+e.note).join('\n\n')]);
+          ents.forEach(e=>{ if(e.content && /이미지/.test(sniff(e.content)||'')) hiddenFiles.push(new File([e.content],e.name)); });
+        }
+      }catch(e){}
+    } else if(tk==='PNG 이미지'||tk==='JPEG 이미지'){
+      hiddenFiles.push(new File([t],'(숨은 그림) '+f.name+(tk==='PNG 이미지'?'.png':'.jpg')));
+    }
+    if(hiddenFiles.length) deep.notes.push('🖼 숨은 그림 '+hiddenFiles.length+'장을 찾아서 아래에 따로 분석했어요.');
+  }
+  const toText=v=>Array.isArray(v)?v.map(([k,x])=>k+': '+x).join('\n'):v;
+  const fullReport='[ '+f.name+' 구석구석 분석 ]\n\n'+(deep.notes.length?deep.notes.join('\n')+'\n\n':'')+deep.secs.map(([t,v])=>'■ '+t+'\n'+toText(v)).join('\n\n');
+  h+=`<details class="deep"><summary>구석구석 분석 (파일 구조, EXIF 전체, 숨은 데이터, HEX)</summary>
+    ${deep.notes.length?`<div class="notes">${deep.notes.map(n=>`<div>${esc(n)}</div>`).join('')}</div>`:''}
+    <div class="sec"><div class="sec-h"><span class="t">전체 보고서</span><button class="copy" data-all="1">전체 복사</button></div></div>
+    ${deep.secs.map(([t,v,kv])=>`<div class="sec"><div class="sec-h"><span class="t">${esc(t)}</span><button class="copy">복사</button></div>${kv?`<div class="kv">${v.map(([k,x])=>`<div>${esc(k)}</div><div>${esc(x)}</div>`).join('')}</div>`:`<pre class="mono">${esc(v)}</pre>`}</div>`).join('')}
+  </details>`;
+  h+='</div>';
+  box.innerHTML=h;
+  if(depth>0) box.classList.add('hiddenimg');
+  if(!found) box.classList.add('nf');
+  box.querySelectorAll('[data-prompt]').forEach(renderPromptBox);
+  bindHead(box,id);
+
+  const name=f.name.length>28?f.name.slice(0,26)+'…':f.name;
+  if(found) results.push({id,name,prompt:data.prompt,chars:data.chars.join(', '),uc:data.uc});
+
+  // 한 번에 복사 버튼
+  const allText=()=>[
+    data.prompt&&('[베이스 프롬프트]\n'+data.prompt),
+    ...data.chars.map((c,i)=>'[캐릭터 '+(i+1)+' 프롬프트]\n'+c+(data.charNegs[i]?'\n\n[캐릭터 '+(i+1)+' 네거티브]\n'+data.charNegs[i]:'')),
+    data.uc&&('[네거티브]\n'+data.uc),
+    data.settings&&('[설정]\n'+data.settings)
+  ].filter(Boolean).join('\n\n');
+  const pick=box.querySelector('.charpick');
+  box.querySelectorAll('.quick button[data-q]').forEach(btn=>btn.addEventListener('click',()=>{
+    const k=btn.dataset.q;
+    if(k==='chars' && pick){ pick.classList.toggle('hidden'); return; }
+    const L={all:'전체 프롬프트',prompt:'베이스 프롬프트',chars:'캐릭터 프롬프트',uc:'네거티브',settings:'설정'};
+    copyText(k==='all'?allText():k==='chars'?data.chars[0]:data[k], L[k]);
+  }));
+  pick?.querySelectorAll('button').forEach(btn=>btn.addEventListener('click',()=>{
+    const i=btn.dataset.ci;
+    copyText(i==='all'?data.chars.map((c,n)=>'[캐릭터 '+(n+1)+']\n'+c).join('\n\n'):data.chars[+i], i==='all'?'캐릭터 '+data.chars.length+'명 전부':'캐릭터 '+(+i+1));
+  }));
+  box.querySelectorAll('.mini button').forEach(btn=>btn.addEventListener('click',()=>{
+    const sec=btn.closest('.sec'), pr=sec.querySelector('[data-prompt]');
+    pr.dataset.mode=btn.dataset.m; renderPromptBox(pr);
+    sec.querySelectorAll('.mini button').forEach(x=>x.classList.toggle('on',x===btn));
+  }));
+  box.querySelectorAll('.gen .g').forEach(c=>c.addEventListener('click',()=>copyText(c.dataset.v,c.textContent)));
+  box.querySelectorAll('button.copy').forEach(btn=>btn.addEventListener('click',()=>{
+    const sec=btn.closest('.sec'); const pr=sec.querySelector('[data-prompt]'); const el=sec.querySelector('pre, .kv');
+    const t=btn.dataset.all?fullReport:pr?pr.dataset.prompt:(el.classList.contains('kv')?[...el.children].map((c,i)=>i%2?c.textContent+'\n':c.textContent+': ').join(''):el.textContent);
+    copyText(t, btn.dataset.all?'전체 보고서':(sec.querySelector('.sec-h .t')?.firstChild?.textContent||'').trim());
+  }));
+
+  if(depth<3) for(const hf of hiddenFiles){
+    const nb=document.createElement('div'); nb.className='result';
+    box.after(nb); await analyze(hf,nb,depth+1);
+  }
+}
+</script>
+</body>
+</html>
