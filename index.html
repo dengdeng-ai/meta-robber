@@ -9,10 +9,15 @@
     --bg:#f6f3ee; --card:#fffdf9; --text:#2b2622; --ink:#2b2622; --sub:#7a6f66; --line:#e4ddd3;
     --accent:#8c7562; --accent-soft:#efe8de; --warn:#a86b1f; --warn-soft:#f8ecd9; --ok:#3f7d5a; --ok-soft:#e3f1e8;
   }
-  @media (prefers-color-scheme: dark){
-    :root{ --bg:#1b1917; --card:#24211f; --text:#ece6df; --ink:#ece6df; --sub:#a39890; --line:#3a3532;
-      --accent:#c9b29b; --accent-soft:#302b26; --warn:#e0a85c; --warn-soft:#3a2f20; --ok:#7fc29b; --ok-soft:#21342a; }
-  }
+  :root{color-scheme:light}
+  html.dark{ color-scheme:dark;
+    --bg:#1b1917; --card:#24211f; --text:#ece6df; --ink:#ece6df; --sub:#a39890; --line:#3a3532;
+    --accent:#c9b29b; --accent-soft:#302b26; --warn:#e0a85c; --warn-soft:#3a2f20; --ok:#7fc29b; --ok-soft:#21342a; }
+  html.dark #saveOneFile{color:#1b1917}
+  .top{display:flex;justify-content:space-between;align-items:center;gap:10px}
+  .theme-btn{border:0;background:none;color:var(--sub);padding:4px;display:flex;align-items:center;cursor:pointer;flex-shrink:0}
+  .theme-btn:hover{color:var(--text)}
+  .theme-btn svg{width:19px;height:19px}
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--text);
     font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard","Noto Sans KR","Malgun Gothic",sans-serif;
@@ -147,6 +152,9 @@
   .sub-btn{flex:1;padding:11px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--text);font:inherit;font-weight:600;cursor:pointer}
   #saveOneFile{background:var(--accent);border-color:var(--accent);color:#fff}
   #saveZip{background:var(--accent-soft);border-color:var(--accent-soft);color:var(--accent)}
+  .emb-row{display:flex;gap:6px}
+  .emb-row select{flex:1;min-width:0;font:inherit;font-size:13px;color:var(--text);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:6px 8px}
+  .emb-note{font-size:12px;margin-top:5px}
   .lib{padding:14px 18px}
   .lib details{margin:0}
   .lib summary{color:var(--text);font-weight:600;font-size:14px}
@@ -178,7 +186,7 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>그림 메타 뜯개</h1>
+  <div class="top"><h1>그림 메타 뜯개</h1><button class="theme-btn" id="themeBtn" title="다크 모드" aria-label="다크 모드 전환"></button></div>
   <p class="lead">AI 그림(NovelAI · WebUI · ComfyUI)에 남은 프롬프트를 꺼내요. 숨긴 메타까지 확인하고, 그림은 브라우저 안에서만 읽어서 어디에도 올라가지 않아요.</p>
 
   <div class="card">
@@ -260,8 +268,18 @@ const ICON={
   save: svg('<path d="M12 4v11"/><path d="M7 10l5 5 5-5"/><path d="M5 20h14"/>'),
   copy: svg('<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/>'),
   done: svg('<path d="M5 12.5l4.5 4.5L19 7.5"/>'),
-  keep: svg('<path d="M6 4h12v16l-6-4-6 4z"/>')
+  keep: svg('<path d="M6 4h12v16l-6-4-6 4z"/>'),
+  moon: svg('<path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/>'),
+  sun: svg('<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>')
 };
+function setTheme(dark){
+  document.documentElement.classList.toggle('dark',dark);
+  $('#themeBtn').innerHTML = dark ? ICON.sun : ICON.moon;
+  $('#themeBtn').title = dark ? '밝은 화면' : '다크 모드';
+  try{ localStorage.setItem('grimMeta.theme', dark?'dark':'light'); }catch(e){}
+}
+{ let t='light'; try{ t=localStorage.getItem('grimMeta.theme')||'light'; }catch(e){} setTheme(t==='dark'); }
+$('#themeBtn').onclick=()=>setTheme(!document.documentElement.classList.contains('dark'));
 const seenFiles = new Set();
 const IN_CLAUDE = !!(window.claude && window.claude.use);
 let downloads = null;
@@ -882,6 +900,9 @@ function interpret(entries){
     if(nai){
       naiSeen=true;
       kind='NovelAI';
+      if(j && j.Comment) data.raw={...j};
+      else { const r={}; for(const x of entries){ if(['Title','Description','Software','Source','Generation time'].includes(x.key)) r[x.key]=x.val; }
+        r.Comment = e.key==='Comment' ? e.val : JSON.stringify(nai); if(!r.Description && nai.prompt) r.Description=nai.prompt; if(!r.Software) r.Software='NovelAI'; data.raw=r; }
       if(nai.prompt){ secs.push(['베이스 프롬프트',nai.prompt,e.src,'p']); data.prompt=nai.prompt; }
       const v4=nai.v4_prompt?.caption;
       if(v4?.char_captions?.length){
@@ -907,7 +928,7 @@ function interpret(entries){
       kind=kind||'Stable Diffusion WebUI';
       const v=e.val; const ni=v.indexOf('\nNegative prompt:'); const si=v.search(/\nSteps: \d+/);
       const pEnd = ni>=0?ni:(si>=0?si:v.length);
-      data.prompt=v.slice(0,pEnd).trim(); secs.push(['프롬프트',data.prompt,e.src,'p']);
+      data.raw={parameters:v}; data.prompt=v.slice(0,pEnd).trim(); secs.push(['프롬프트',data.prompt,e.src,'p']);
       if(ni>=0){ data.uc=v.slice(ni+17,si>ni?si:v.length).trim(); secs.push(['네거티브',data.uc,e.src,'p']); }
       if(si>=0){ data.settings=v.slice(si+1).trim(); secs.push(['설정',data.settings,e.src]); }
       continue;
@@ -928,6 +949,81 @@ function interpret(entries){
 }
 
 
+
+
+/* ================= 메타 넣어서 PNG로 저장 ================= */
+async function gzipBytes(u8){ return new Uint8Array(await new Response(new Blob([u8]).stream().pipeThrough(new CompressionStream('gzip'))).arrayBuffer()); }
+function pngChunk(type,data){
+  const t=new TextEncoder().encode(type), out=new Uint8Array(12+data.length), dv=new DataView(out.buffer);
+  dv.setUint32(0,data.length); out.set(t,4); out.set(data,8);
+  const c=new Uint8Array(4+data.length); c.set(t,0); c.set(data,4); dv.setUint32(8+data.length,crc32(c));
+  return out;
+}
+function textChunk(k,v){
+  const enc=new TextEncoder(); const kb=enc.encode(k), vb=enc.encode(v);
+  if(/^[\x00-\x7F]*$/.test(v)){ const d=new Uint8Array(kb.length+1+vb.length); d.set(kb,0); d.set(vb,kb.length+1); return pngChunk('tEXt',d); }
+  const d=new Uint8Array(kb.length+5+vb.length); d.set(kb,0); d.set(vb,kb.length+5); return pngChunk('iTXt',d); // 키\0 압축0 방식0 언어\0 번역키\0 값
+}
+function rebuildRaw(it){
+  const set={}; (it.settings||'').split(/,\s*/).forEach(p=>{ const m=p.match(/^(\w+):\s*(.+)$/); if(m) set[m[1]]=isNaN(+m[2])?m[2]:+m[2]; });
+  const cc=(arr)=>(arr||[]).map(c=>({char_caption:c||'',centers:[{x:0.5,y:0.5}]}));
+  const comment={prompt:it.prompt||'',uc:it.uc||'',...set,
+    v4_prompt:{caption:{base_caption:it.prompt||'',char_captions:cc(it.chars)},use_coords:false,use_order:true},
+    v4_negative_prompt:{caption:{base_caption:it.uc||'',char_captions:cc((it.chars||[]).map((_,i)=>(it.charNegs||[])[i]||''))},legacy_uc:false}};
+  return {Description:it.prompt||'',Software:'NovelAI',Comment:JSON.stringify(comment)};
+}
+/* NAI 원본 PNG와 같은 모양으로 정리: Title·Description·Software·Source·Generation time·Comment, 깨진 서명은 뺌 */
+function normalizeNaiRaw(raw){
+  if(raw.parameters!==undefined && Object.keys(raw).length===1) return raw;
+  let c=raw.Comment; if(typeof c==='string'){ try{ c=JSON.parse(c); }catch(e){ c=null; } }
+  if(!c) return raw;
+  c={...c}; delete c.signed_hash;
+  const out={};
+  out.Title=raw.Title||'NovelAI generated image';
+  out.Description=raw.Description||c.prompt||'';
+  out.Software='NovelAI';
+  const src=raw.Source || (c.model_name ? c.model_name+(c.model_hash?' '+c.model_hash:'') : '');
+  if(src) out.Source=src;
+  if(raw['Generation time']!==undefined) out['Generation time']=String(raw['Generation time']);
+  out.Comment=JSON.stringify(c);
+  return out;
+}
+async function buildMetaPng(file, raw){
+  raw=normalizeNaiRaw(raw);
+  const bmp=await createImageBitmap(file,{premultiplyAlpha:'none',colorSpaceConversion:'none'});
+  const w=bmp.width,h=bmp.height;
+  const c=document.createElement('canvas'); c.width=w; c.height=h;
+  const g=c.getContext('2d',{willReadFrequently:true}); g.drawImage(bmp,0,0);
+  const img=g.getImageData(0,0,w,h), px=img.data;
+  // 숨긴 메타: NAI와 같은 방식 (투명도 맨 끝자리, 세로 순서, gzip)
+  const isWebui = raw.parameters!==undefined && Object.keys(raw).length===1;
+  const payloadText = isWebui ? raw.parameters : JSON.stringify(Object.fromEntries(Object.entries(raw).filter(([k])=>k!=='Title')));
+  const data=await gzipBytes(new TextEncoder().encode(payloadText));
+  const head=new TextEncoder().encode('stealth_pngcomp'); const nbits=data.length*8;
+  const bits=[]; const pushByte=b=>{ for(let k=7;k>=0;k--) bits.push((b>>k)&1); };
+  head.forEach(pushByte); for(let k=31;k>=0;k--) bits.push(Math.floor(nbits/2**k)%2); data.forEach(pushByte);
+  if(bits.length>w*h) throw new Error('그림이 너무 작아서 메타를 다 입힐 수 없어요');
+  const opaque=(()=>{ for(let i=3;i<px.length;i+=4) if(px[i]!==255) return false; return true; })();
+  for(let i=0;i<bits.length;i++){ const x=Math.floor(i/h), y=i%h, o=(y*w+x)*4+3; px[o]=(opaque?0xFE:(px[o]&0xFE))|bits[i]; }
+  g.putImageData(img,0,0);
+  const blob=await new Promise(r=>c.toBlob(r,'image/png'));
+  const u=new Uint8Array(await blob.arrayBuffer());
+  // 일반 메타(텍스트)를 IHDR 바로 뒤에 넣기
+  const ihdrEnd=8+12+new DataView(u.buffer).getUint32(8);
+  const keys = isWebui ? [['parameters',raw.parameters]] : ['Title','Description','Software','Source','Generation time','Comment'].filter(k=>raw[k]!==undefined).map(k=>[k,String(raw[k])]);
+  const chunks=keys.map(([k,v])=>textChunk(k,v));
+  return new Blob([u.slice(0,ihdrEnd),...chunks,u.slice(ihdrEnd)],{type:'image/png'});
+}
+function embedOptions(box){
+  const sel=box.querySelector('.emb-src'); if(!sel) return;
+  const prev=sel.value;
+  const opts=[]; if(box._raw) opts.push(['self','이 그림 메타']);
+  libItems.forEach(i=>opts.push([i.id,'보관함: '+i.name]));
+  sel.innerHTML=opts.length?opts.map(([v,l])=>`<option value="${v}">${esc(l)}</option>`).join(''):'<option value="">입힐 메타가 없어요 (보관함에 넣어두면 골라 쓸 수 있어요)</option>';
+  if(opts.some(o=>o[0]===prev)) sel.value=prev;
+  sel.disabled=!opts.length; box.querySelector('.emb-go').disabled=!opts.length;
+}
+function refreshEmbeds(){ out.querySelectorAll('.result').forEach(embedOptions); }
 
 /* ================= 보관함 (이 브라우저 IndexedDB) ================= */
 let libItems=[]; let libDB=null;
@@ -956,7 +1052,7 @@ function libText(x){
     x.uc&&('[네거티브]\n'+x.uc), x.settings&&('[설정]\n'+x.settings)].filter(Boolean).join('\n\n');
 }
 function libRender(){
-  $('#libCount').textContent=libItems.length;
+  $('#libCount').textContent=libItems.length; try{ refreshEmbeds(); }catch(e){}
   const q=($('#libSearch').value||'').trim().toLowerCase();
   const list=q?libItems.filter(i=>(i.name+' '+libText(i)).toLowerCase().includes(q)):libItems;
   if(!libItems.length){ $('#libList').innerHTML='<div class="empty" style="margin-top:10px">아직 보관한 프롬프트가 없어요. 결과에서 책갈피 아이콘을 누르면 여기에 쌓여요.</div>'; return; }
@@ -989,7 +1085,7 @@ $('#libImport').addEventListener('change',async()=>{
   const f=$('#libImport').files[0]; $('#libImport').value=''; if(!f) return;
   try{
     const j=JSON.parse(await f.text()); const arr=Array.isArray(j)?j:j.items; if(!Array.isArray(arr)) throw 0;
-    let n=0; for(const x of arr.slice().reverse()){ if(x&&(x.prompt||x.uc)){ const r=await libAdd({name:x.name||'(이름 없음)',thumb:x.thumb||'',prompt:x.prompt||'',chars:x.chars||[],charNegs:x.charNegs||[],uc:x.uc||'',settings:x.settings||'',kind:x.kind||''},true); if(r===true) n++; } }
+    let n=0; for(const x of arr.slice().reverse()){ if(x&&(x.prompt||x.uc)){ const r=await libAdd({name:x.name||'(이름 없음)',thumb:x.thumb||'',prompt:x.prompt||'',chars:x.chars||[],charNegs:x.charNegs||[],uc:x.uc||'',settings:x.settings||'',kind:x.kind||'',raw:x.raw||null},true); if(r===true) n++; } }
     toast(n?'백업에서 '+n+'개 불러왔어요':'새로 불러올 게 없어요(이미 다 있어요)');
     $('#libDetails').open=true;
   }catch(e){ toast('백업 파일을 읽을 수 없어요'); }
@@ -1103,6 +1199,9 @@ async function analyze(f,box,depth=0){
       <li>숨긴 메타(NovelAI가 투명도 채널에 넣는 정보)도 확인했지만 없었어요.</li>
     </ul></div>`;
   }
+  h+=`<div class="sec embed"><div class="sec-h"><span class="t">메타 입히기</span></div>
+    <div class="emb-row"><select class="emb-src"></select><button class="mini-btn emb-go">PNG로 저장</button></div>
+    <div class="empty emb-note">고른 메타를 이 그림에 입혀서 PNG로 저장해요. 그림은 그대로예요.</div></div>`;
   if(entries.length){
     h+=`<details><summary>원본 데이터 전체 보기 (${entries.length}개 항목)</summary>${entries.map(e=>`<div class="sec"><div class="sec-h"><span class="t">${esc(e.key)}<span class="src">${esc(e.src)}</span></span><button class="copy">복사</button></div><pre>${esc(e.val)}</pre></div>`).join('')}</details>`;
   }
@@ -1152,8 +1251,17 @@ async function analyze(f,box,depth=0){
   if(found) results.push({id,name,fullName:f.name,txtName,txt:allText(),prompt:data.prompt,chars:data.chars.join(', '),uc:data.uc});
   box._file=f;
   const flip=(btn,ok,icon)=>{ if(!ok) return; btn.innerHTML=ICON.done; setTimeout(()=>btn.innerHTML=icon,1500); };
-  const keepItem=async(silent)=>libAdd({name:f.name,thumb:await makeThumb(f),prompt:data.prompt,chars:data.chars,charNegs:data.charNegs,uc:data.uc,settings:data.settings,kind:kind||''},silent);
+  const keepItem=async(silent)=>libAdd({name:f.name,thumb:await makeThumb(f),prompt:data.prompt,chars:data.chars,charNegs:data.charNegs,uc:data.uc,settings:data.settings,kind:kind||'',raw:data.raw||null},silent);
   if(found&&(data.prompt||data.uc)) box._keep=keepItem;
+  if(found&&data.raw) box._raw=data.raw;
+  embedOptions(box);
+  box.querySelector('.emb-go')?.addEventListener('click',async e=>{
+    const v=box.querySelector('.emb-src').value; if(!v) return;
+    const raw = v==='self' ? box._raw : (()=>{ const it=libItems.find(i=>i.id===v); return it ? (it.raw||rebuildRaw(it)) : null; })();
+    if(!raw) return;
+    try{ toast('메타 입히는 중…'); const blob=await buildMetaPng(f,raw); await saveFile(f.name.replace(/\.[^.]+$/,'')+'_meta.png', blob); }
+    catch(err){ toast(err.message||'메타를 입히지 못했어요'); }
+  });
   box.querySelector('.head .kp')?.addEventListener('click',async e=>{ e.stopPropagation(); const b=e.currentTarget; flip(b,(await keepItem())===true,ICON.keep); });
   box.querySelector('.head .dl')?.addEventListener('click',async e=>{ e.stopPropagation(); const b=e.currentTarget; flip(b,await saveFile(f.name,f),ICON.save); });
   box.querySelector('.head .cp')?.addEventListener('click',async e=>{ e.stopPropagation(); const b=e.currentTarget; flip(b,await copyImage(f),ICON.copy); });
