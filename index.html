@@ -40,11 +40,12 @@
   @media (max-width:480px){ .seg button{padding:6px 9px} }
 
   /* 목록 머리 */
-  .list-head{display:flex;justify-content:space-between;align-items:center;margin:4px 2px 10px}
+  .list-head{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px 12px;margin:4px 2px 10px}
+  .list-head>span:last-child{white-space:nowrap;font-size:13px}
   .list-head .t{font-weight:600}
   .list-head .t small{color:var(--sub);font-weight:400;margin-left:6px}
   .tabs{display:inline-flex;gap:14px}
-  .tab{background:none;border:0;padding:0;font:inherit;color:var(--sub);cursor:pointer}
+  .tab{background:none;border:0;padding:0;font:inherit;color:var(--sub);cursor:pointer;white-space:nowrap}
   .tab small{font-size:12px;margin-left:2px}
   .tab.on{color:var(--text);font-weight:600}
   .link{background:none;border:0;color:var(--sub);cursor:pointer;font:inherit;padding:0}
@@ -137,7 +138,36 @@
   .cmp-col .h{font-size:12.5px;color:var(--sub);margin-bottom:5px}
   .empty{color:var(--sub);font-size:13px}
 
-  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:8px 16px;border-radius:20px;font-size:13px;opacity:0;transition:.2s;pointer-events:none;z-index:80}
+  .hb{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;flex:none}
+  .hb button{border:0;background:var(--card);color:var(--accent);padding:6px 10px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+  .hb svg{width:17px;height:17px}
+  .hb button+button{border-left:1px solid var(--line)}
+  .hb button:hover{background:var(--accent-soft)}
+  .dock{position:sticky;bottom:0;display:flex;gap:8px;padding:10px 0 12px;background:var(--bg);z-index:5}
+  .sub-btn{flex:1;padding:11px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--text);font:inherit;font-weight:600;cursor:pointer}
+  #saveOneFile{background:var(--accent);border-color:var(--accent);color:#fff}
+  #saveZip{background:var(--accent-soft);border-color:var(--accent-soft);color:var(--accent)}
+  .lib{padding:14px 18px}
+  .lib details{margin:0}
+  .lib summary{color:var(--text);font-weight:600;font-size:14px}
+  .lib summary small{color:var(--sub);font-weight:400;margin-left:4px}
+  .lib-tools{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
+  .lib-tools input[type=search]{flex:1 1 180px;min-width:0;font:inherit;color:var(--text);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:7px 10px}
+  .mini-btn{border:1px solid var(--line);background:var(--card);color:var(--text);border-radius:8px;font:inherit;font-size:12.5px;padding:7px 10px;cursor:pointer;white-space:nowrap}
+  .mini-btn:hover{border-color:var(--accent);color:var(--accent)}
+  .lib-note{margin-top:8px;font-size:12px}
+  .li{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-top:1px solid var(--line)}
+  .li:first-child{border-top:0}
+  .li img{width:46px;height:46px;object-fit:cover;border-radius:7px;background:var(--bg);flex:none}
+  .li .inf{flex:1;min-width:0}
+  .li .nm{font-weight:500;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .li .dt{color:var(--sub);font-size:11.5px}
+  .li .pv{color:var(--sub);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+  .li .acts{display:flex;gap:4px;flex-wrap:wrap;margin-top:6px}
+  .li .acts button{border:1px solid var(--line);background:var(--card);color:var(--accent);border-radius:7px;font:inherit;font-size:11.5px;font-weight:600;padding:3px 8px;cursor:pointer}
+  .li .acts button:hover{background:var(--accent-soft)}
+  .li .del{border:0;background:none;color:var(--sub);font-size:17px;cursor:pointer;padding:0 2px;flex:none}
+  .toast{position:fixed;left:50%;bottom:76px;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:8px 16px;border-radius:20px;font-size:13px;opacity:0;transition:.2s;pointer-events:none;z-index:80}
   .toast.on{opacity:.92}
   .hint{color:var(--sub);font-size:12.5px;width:100%}
   @media (min-width:520px){ .hint{padding-left:86px} }
@@ -159,12 +189,31 @@
     <input type="file" id="file" accept="image/*" multiple hidden>
   </div>
 
+  <div class="card lib" id="libCard">
+    <details id="libDetails">
+      <summary>보관함 <small id="libCount">0</small></summary>
+      <div class="lib-tools">
+        <input type="search" id="libSearch" placeholder="이름이나 태그로 찾기">
+        <button class="mini-btn" id="libExport">백업 파일로 내보내기</button>
+        <label class="mini-btn" for="libImport">백업 불러오기</label>
+        <input type="file" id="libImport" accept=".json,application/json" hidden>
+      </div>
+      <div class="empty lib-note">보관한 프롬프트는 이 브라우저에만 저장돼요. 기기를 바꾸거나 기록을 지우면 사라지니, 가끔 백업 파일로 내보내 두세요.</div>
+      <div id="libList"></div>
+    </details>
+  </div>
+
   <div id="listWrap" class="hidden">
     <div class="list-head">
       <span class="tabs"><button class="tab on" data-v="all">전체 <small id="cntAll">0</small></button><button class="tab" data-v="found">메타 있음 <small id="cntFound">0</small></button><button class="tab" data-v="none">메타 없음 <small id="cntNone">0</small></button></span>
       <span><button class="link" id="foldAll">모두 접기</button> · <button class="link" id="clear">목록 비우기</button></span>
     </div>
     <div id="out"></div>
+    <div class="dock hidden" id="dock">
+      <button class="sub-btn" id="saveOneFile">전체 저장</button>
+      <button class="sub-btn" id="saveZip">ZIP으로 저장</button>
+      <button class="sub-btn" id="keepAll">전체 보관</button>
+    </div>
   </div>
 
   <div class="card hidden" id="cmpCard">
@@ -206,6 +255,67 @@ async function copyText(text,label){
   }
 }
 
+const svg=d=>'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'+d+'</svg>';
+const ICON={
+  save: svg('<path d="M12 4v11"/><path d="M7 10l5 5 5-5"/><path d="M5 20h14"/>'),
+  copy: svg('<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/>'),
+  done: svg('<path d="M5 12.5l4.5 4.5L19 7.5"/>'),
+  keep: svg('<path d="M6 4h12v16l-6-4-6 4z"/>')
+};
+const seenFiles = new Set();
+const IN_CLAUDE = !!(window.claude && window.claude.use);
+let downloads = null;
+(async()=>{ try{ if(IN_CLAUDE) downloads = await claude.use('downloads'); }catch(e){} })();
+async function saveFile(filename, blob){
+  if(IN_CLAUDE){
+    if(!downloads){ toast('이 화면에서는 저장이 안 돼요. 복사 버튼을 써주세요'); return false; }
+    try{ await downloads.save({filename, data:blob}); toast(filename+' 저장했어요'); return true; }
+    catch(e){ toast('저장을 취소했거나 막혔어요'); return false; }
+  }
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url; a.download=filename; document.body.append(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),4000);
+  toast(filename+' 저장했어요'); return true;
+}
+/* 압축 없이 묶는 간단한 ZIP (외부 라이브러리 없이) */
+const CRC_T=(()=>{ const t=new Uint32Array(256); for(let n=0;n<256;n++){ let c=n; for(let k=0;k<8;k++) c=c&1?0xEDB88320^(c>>>1):c>>>1; t[n]=c>>>0; } return t; })();
+function crc32(u){ let c=0xFFFFFFFF; for(let i=0;i<u.length;i++) c=CRC_T[(c^u[i])&255]^(c>>>8); return (c^0xFFFFFFFF)>>>0; }
+function makeZip(files){
+  const enc=new TextEncoder(), parts=[], central=[]; let off=0;
+  const d=new Date(), dt=((d.getHours()<<11)|(d.getMinutes()<<5)|(d.getSeconds()>>1)), dd=(((d.getFullYear()-1980)<<9)|((d.getMonth()+1)<<5)|d.getDate());
+  for(const f of files){
+    const nm=enc.encode(f.name), crc=crc32(f.data), sz=f.data.length;
+    const h=new DataView(new ArrayBuffer(30));
+    h.setUint32(0,0x04034b50,true); h.setUint16(4,20,true); h.setUint16(6,0x0800,true); h.setUint16(8,0,true);
+    h.setUint16(10,dt,true); h.setUint16(12,dd,true); h.setUint32(14,crc,true); h.setUint32(18,sz,true); h.setUint32(22,sz,true);
+    h.setUint16(26,nm.length,true); h.setUint16(28,0,true);
+    parts.push(new Uint8Array(h.buffer),nm,f.data);
+    const c=new DataView(new ArrayBuffer(46));
+    c.setUint32(0,0x02014b50,true); c.setUint16(4,20,true); c.setUint16(6,20,true); c.setUint16(8,0x0800,true); c.setUint16(10,0,true);
+    c.setUint16(12,dt,true); c.setUint16(14,dd,true); c.setUint32(16,crc,true); c.setUint32(20,sz,true); c.setUint32(24,sz,true);
+    c.setUint16(28,nm.length,true); c.setUint32(42,off,true);
+    central.push(new Uint8Array(c.buffer),nm);
+    off+=30+nm.length+sz;
+  }
+  const cs=central.reduce((a,x)=>a+x.length,0);
+  const e=new DataView(new ArrayBuffer(22));
+  e.setUint32(0,0x06054b50,true); e.setUint16(8,files.length,true); e.setUint16(10,files.length,true); e.setUint32(12,cs,true); e.setUint32(16,off,true);
+  return new Blob([...parts,...central,new Uint8Array(e.buffer)],{type:'application/zip'});
+}
+async function toPng(f){
+  if(f.type==='image/png') return new Blob([await f.arrayBuffer()],{type:'image/png'});
+  const bmp=await createImageBitmap(f); const c=document.createElement('canvas'); c.width=bmp.width; c.height=bmp.height;
+  c.getContext('2d').drawImage(bmp,0,0); return await new Promise(r=>c.toBlob(r,'image/png'));
+}
+async function copyImage(f){
+  if(!navigator.clipboard || !window.ClipboardItem){ toast('이 브라우저는 그림 복사를 지원하지 않아요. 저장을 써주세요'); return; }
+  toast('그림 복사하는 중…');
+  const p=toPng(f);
+  try{ await navigator.clipboard.write([new ClipboardItem({'image/png':p})]); toast('그림 복사했어요'); return true; }catch(e){}
+  try{ await navigator.clipboard.write([new ClipboardItem({'image/png':await p})]); toast('그림 복사했어요'); return true; }
+  catch(e){ toast('이 화면에서는 그림 복사가 막혀 있어요. 저장을 써주세요'); return false; }
+}
+function uniqueNames(list){ const used={}; return list.map(n=>{ let m=n; const dot=n.lastIndexOf('.'), base=dot>0?n.slice(0,dot):n, ext=dot>0?n.slice(dot):''; let k=2; while(used[m]) m=base+' ('+(k++)+')'+ext; used[m]=1; return m; }); }
 const isImg = f => f && (f.type.startsWith('image/') || /\.(png|jpe?g|webp|avif)$/i.test(f.name));
 ['dragenter','dragover'].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.add('over')}));
 ['dragleave','drop'].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.remove('over')}));
@@ -227,13 +337,28 @@ document.querySelectorAll('.tabs .tab').forEach(b=>b.addEventListener('click',()
   document.querySelectorAll('.tabs .tab').forEach(x=>x.classList.toggle('on',x===b));
   out.classList.toggle('onlyfound',b.dataset.v==='found'); out.classList.toggle('onlynone',b.dataset.v==='none'); updateList();
 }));
-$('#clear').addEventListener('click',()=>{ out.innerHTML=''; results.length=0; updateList(); });
+$('#clear').addEventListener('click',()=>{ out.innerHTML=''; results.length=0; seenFiles.clear(); updateList(); });
+// 지금 보고 있는 탭(전체/메타 있음/메타 없음)의 그림만 저장
+function visibleFiles(){ return [...out.querySelectorAll('.result')].filter(r=>r._file && r.offsetParent!==null).map(r=>r._file); }
+function tabName(){ return out.classList.contains('onlyfound')?'meta_yes':out.classList.contains('onlynone')?'meta_no':'images'; }
+$('#saveOneFile').addEventListener('click',async()=>{
+  const fs=visibleFiles(); if(!fs.length) return;
+  for(const f of fs){ const ok=await saveFile(f.name,f); if(!ok) break; await new Promise(r=>setTimeout(r,300)); }
+});
+$('#saveZip').addEventListener('click',async()=>{
+  const fs=visibleFiles(); if(!fs.length) return;
+  toast('ZIP 만드는 중…');
+  const names=uniqueNames(fs.map(f=>f.name));
+  const items=await Promise.all(fs.map(async(f,i)=>({name:names[i],data:new Uint8Array(await f.arrayBuffer())})));
+  saveFile(tabName()+'.zip', makeZip(items));
+});
 $('#foldAll').addEventListener('click',()=>{
   const all=[...out.querySelectorAll('.result')]; const anyOpen=all.some(r=>!r.classList.contains('folded'));
   all.forEach(r=>r.classList.toggle('folded',anyOpen)); updateList();
 });
 function updateList(){
   const n=out.querySelectorAll('.result').length, nf=out.querySelectorAll('.result:not(.nf)').length;
+  $('#dock').classList.toggle('hidden', !n);
   $('#cntAll').textContent=n; $('#cntFound').textContent=nf; $('#cntNone').textContent=n-nf; $('#listWrap').classList.toggle('hidden',!n);
   const all=[...out.querySelectorAll('.result')];
   $('#foldAll').textContent=all.length&&all.every(r=>r.classList.contains('folded'))?'모두 펼치기':'모두 접기';
@@ -803,12 +928,95 @@ function interpret(entries){
 }
 
 
+
+/* ================= 보관함 (이 브라우저 IndexedDB) ================= */
+let libItems=[]; let libDB=null;
+function libOpen(){ return new Promise(res=>{ try{ const r=indexedDB.open('grim-meta-lib',1);
+  r.onupgradeneeded=()=>r.result.createObjectStore('items',{keyPath:'id'});
+  r.onsuccess=()=>res(r.result); r.onerror=()=>res(null); }catch(e){ res(null); } }); }
+function libTx(mode,fn){ return new Promise(res=>{ if(!libDB) return res(false); try{ const t=libDB.transaction('items',mode); fn(t.objectStore('items')); t.oncomplete=()=>res(true); t.onerror=()=>res(false); }catch(e){ res(false); } }); }
+async function libLoad(){
+  libDB=await libOpen();
+  if(libDB){ await new Promise(res=>{ try{ const q=libDB.transaction('items').objectStore('items').getAll(); q.onsuccess=()=>{ libItems=q.result||[]; res(); }; q.onerror=()=>res(); }catch(e){ res(); } }); }
+  libRender();
+}
+function libKey(x){ return [x.prompt,(x.chars||[]).join('|'),x.uc].join('\u0001'); }
+async function libAdd(x,silent){
+  const k=libKey(x);
+  if(libItems.some(i=>libKey(i)===k)){ if(!silent) toast('이미 보관함에 있어요'); return 'dup'; }
+  const item={...x,id:Date.now().toString(36)+Math.random().toString(36).slice(2,7),savedAt:Date.now()};
+  libItems.unshift(item); await libTx('readwrite',st=>st.put(item));
+  libRender(); if(!silent) toast(libDB?'보관함에 넣었어요':'보관했지만 이 화면에선 새로고침하면 사라져요');
+  return true;
+}
+async function libDel(id){ libItems=libItems.filter(i=>i.id!==id); await libTx('readwrite',st=>st.delete(id)); libRender(); }
+function libText(x){
+  return [x.prompt&&('[베이스 프롬프트]\n'+x.prompt),
+    ...(x.chars||[]).map((c,i)=>'[캐릭터 '+(i+1)+' 프롬프트]\n'+c+((x.charNegs||[])[i]?'\n\n[캐릭터 '+(i+1)+' 네거티브]\n'+x.charNegs[i]:'')),
+    x.uc&&('[네거티브]\n'+x.uc), x.settings&&('[설정]\n'+x.settings)].filter(Boolean).join('\n\n');
+}
+function libRender(){
+  $('#libCount').textContent=libItems.length;
+  const q=($('#libSearch').value||'').trim().toLowerCase();
+  const list=q?libItems.filter(i=>(i.name+' '+libText(i)).toLowerCase().includes(q)):libItems;
+  if(!libItems.length){ $('#libList').innerHTML='<div class="empty" style="margin-top:10px">아직 보관한 프롬프트가 없어요. 결과에서 책갈피 아이콘을 누르면 여기에 쌓여요.</div>'; return; }
+  if(!list.length){ $('#libList').innerHTML='<div class="empty" style="margin-top:10px">찾는 게 없어요.</div>'; return; }
+  $('#libList').innerHTML=list.map(i=>{
+    const d=new Date(i.savedAt); const ds=d.getFullYear()+'.'+(d.getMonth()+1)+'.'+d.getDate();
+    const btn=(k,l)=>`<button data-k="${k}">${l}</button>`;
+    return `<div class="li" data-id="${i.id}">${i.thumb?`<img src="${i.thumb}" alt="">`:'<img alt="">'}<div class="inf">
+      <div class="nm">${esc(i.name)}</div><div class="dt">${ds}${(i.chars||[]).length?' · 캐릭터 '+i.chars.length+'명':''}</div>
+      <div class="pv">${esc((i.prompt||i.uc||'').slice(0,160))}</div>
+      <div class="acts">${btn('all','전체')}${i.prompt?btn('prompt','베이스'):''}${(i.chars||[]).map((c,n)=>btn('c'+n,(i.chars.length>1?'캐릭터 '+(n+1):'캐릭터'))).join('')}${i.uc?btn('uc','네거'):''}${i.settings?btn('settings','설정'):''}</div>
+    </div><button class="del" title="보관함에서 빼기">×</button></div>`;
+  }).join('');
+}
+$('#libList').addEventListener('click',e=>{
+  const li=e.target.closest('.li'); if(!li) return; const it=libItems.find(i=>i.id===li.dataset.id); if(!it) return;
+  if(e.target.closest('.del')){ libDel(it.id); toast('보관함에서 뺐어요'); return; }
+  const b=e.target.closest('button[data-k]'); if(!b) return; const k=b.dataset.k;
+  const L={all:'전체 프롬프트',prompt:'베이스 프롬프트',uc:'네거티브',settings:'설정'};
+  if(k[0]==='c'&&k!=='c') copyText(it.chars[+k.slice(1)], '캐릭터 '+(+k.slice(1)+1));
+  else copyText(k==='all'?libText(it):it[k], L[k]);
+});
+$('#libSearch').addEventListener('input',libRender);
+$('#libExport').addEventListener('click',()=>{
+  if(!libItems.length){ toast('보관한 게 없어요'); return; }
+  const d=new Date(); const stamp=d.getFullYear()+String(d.getMonth()+1).padStart(2,'0')+String(d.getDate()).padStart(2,'0');
+  saveFile('prompt_backup_'+stamp+'.json', new Blob([JSON.stringify({app:'grim-meta',version:1,items:libItems})],{type:'application/json'}));
+});
+$('#libImport').addEventListener('change',async()=>{
+  const f=$('#libImport').files[0]; $('#libImport').value=''; if(!f) return;
+  try{
+    const j=JSON.parse(await f.text()); const arr=Array.isArray(j)?j:j.items; if(!Array.isArray(arr)) throw 0;
+    let n=0; for(const x of arr.slice().reverse()){ if(x&&(x.prompt||x.uc)){ const r=await libAdd({name:x.name||'(이름 없음)',thumb:x.thumb||'',prompt:x.prompt||'',chars:x.chars||[],charNegs:x.charNegs||[],uc:x.uc||'',settings:x.settings||'',kind:x.kind||''},true); if(r===true) n++; } }
+    toast(n?'백업에서 '+n+'개 불러왔어요':'새로 불러올 게 없어요(이미 다 있어요)');
+    $('#libDetails').open=true;
+  }catch(e){ toast('백업 파일을 읽을 수 없어요'); }
+});
+$('#keepAll').addEventListener('click',async()=>{
+  const boxes=[...out.querySelectorAll('.result')].filter(r=>r._keep && r.offsetParent!==null);
+  if(!boxes.length){ toast('보관할 프롬프트가 없어요'); return; }
+  let n=0; for(const b of boxes){ if(await b._keep(true)===true) n++; }
+  toast(n?n+'개 보관했어요':'이미 다 보관함에 있어요');
+});
+async function makeThumb(f){
+  try{ const bmp=await createImageBitmap(f); const S=120, r=Math.max(S/bmp.width,S/bmp.height);
+    const c=document.createElement('canvas'); c.width=S; c.height=S; const g=c.getContext('2d');
+    g.drawImage(bmp,(S-bmp.width*r)/2,(S-bmp.height*r)/2,bmp.width*r,bmp.height*r); return c.toDataURL('image/jpeg',0.75); }
+  catch(e){ return ''; }
+}
+libLoad();
+
 async function handle(files){
   files=files.filter(isImg); if(!files.length) return;
-  out.innerHTML=''; results.length=0;
+  const before=files.length; files=files.filter(f=>{ const k=f.name+'|'+f.size+'|'+f.lastModified; if(seenFiles.has(k)) return false; seenFiles.add(k); return true; });
+  if(files.length<before) toast('이미 올린 그림 '+(before-files.length)+'장은 건너뛰었어요');
+  if(!files.length) return;
   $('#listWrap').classList.remove('hidden');
   for(const f of files){
     const box=document.createElement('div'); box.className='result'+(files.length>1?' folded':'');
+    box.dataset.key=f.name+'|'+f.size+'|'+f.lastModified;
     out.appendChild(box);
     box.innerHTML='<div class="head"><div class="info"><div class="name">'+esc(f.name)+'</div><div class="meta">읽는 중…</div></div></div>';
     updateList();
@@ -820,9 +1028,9 @@ async function handle(files){
 
 function bindHead(box,id){
   const head=box.querySelector('.head');
-  head.addEventListener('click',e=>{ if(e.target.closest('.x')) return; box.classList.toggle('folded'); updateList(); });
+  head.addEventListener('click',e=>{ if(e.target.closest('.x,.dl,.cp,.kp')) return; box.classList.toggle('folded'); updateList(); });
   head.querySelector('.x')?.addEventListener('click',()=>{
-    box.remove(); const i=results.findIndex(r=>r.id===id); if(i>=0) results.splice(i,1); updateList();
+    seenFiles.delete(box.dataset.key); box.remove(); const i=results.findIndex(r=>r.id===id); if(i>=0) results.splice(i,1); updateList();
   });
 }
 
@@ -853,7 +1061,7 @@ async function analyze(f,box,depth=0){
     <div class="name">${esc(f.name)}</div>
     <div class="meta">${fmt}${extMismatch?' (확장자와 다름)':''} · ${size}${dims}</div>
     <div class="chips">${chips}</div>
-  </div><span class="arrow">▴</span><button class="x" title="빼기">×</button></div>`;
+  </div><span class="hb">${found&&(data.prompt||data.uc)?`<button class="kp" title="보관함에 넣기" aria-label="보관">${ICON.keep}</button>`:''}<button class="dl" title="저장" aria-label="저장">${ICON.save}</button><button class="cp" title="복사" aria-label="복사">${ICON.copy}</button></span><span class="arrow">▴</span><button class="x" title="빼기">×</button></div>`;
 
   // 한 번에 복사 (접혀 있어도 보임)
   if(found && (data.prompt||data.uc)){
@@ -932,7 +1140,6 @@ async function analyze(f,box,depth=0){
   bindHead(box,id);
 
   const name=f.name.length>28?f.name.slice(0,26)+'…':f.name;
-  if(found) results.push({id,name,prompt:data.prompt,chars:data.chars.join(', '),uc:data.uc});
 
   // 한 번에 복사 버튼
   const allText=()=>[
@@ -941,6 +1148,15 @@ async function analyze(f,box,depth=0){
     data.uc&&('[네거티브]\n'+data.uc),
     data.settings&&('[설정]\n'+data.settings)
   ].filter(Boolean).join('\n\n');
+  const txtName=f.name.replace(/\.[^.]+$/,'')+'.txt';
+  if(found) results.push({id,name,fullName:f.name,txtName,txt:allText(),prompt:data.prompt,chars:data.chars.join(', '),uc:data.uc});
+  box._file=f;
+  const flip=(btn,ok,icon)=>{ if(!ok) return; btn.innerHTML=ICON.done; setTimeout(()=>btn.innerHTML=icon,1500); };
+  const keepItem=async(silent)=>libAdd({name:f.name,thumb:await makeThumb(f),prompt:data.prompt,chars:data.chars,charNegs:data.charNegs,uc:data.uc,settings:data.settings,kind:kind||''},silent);
+  if(found&&(data.prompt||data.uc)) box._keep=keepItem;
+  box.querySelector('.head .kp')?.addEventListener('click',async e=>{ e.stopPropagation(); const b=e.currentTarget; flip(b,(await keepItem())===true,ICON.keep); });
+  box.querySelector('.head .dl')?.addEventListener('click',async e=>{ e.stopPropagation(); const b=e.currentTarget; flip(b,await saveFile(f.name,f),ICON.save); });
+  box.querySelector('.head .cp')?.addEventListener('click',async e=>{ e.stopPropagation(); const b=e.currentTarget; flip(b,await copyImage(f),ICON.copy); });
   const pick=box.querySelector('.charpick');
   box.querySelectorAll('.quick button[data-q]').forEach(btn=>btn.addEventListener('click',()=>{
     const k=btn.dataset.q;
